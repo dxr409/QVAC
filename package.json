@@ -1,0 +1,40 @@
+{
+  "name": "qvac-local-ai-suite",
+  "version": "1.0.0",
+  "description": "Local AI application suite using Tether QVAC SDK & CLI",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli/index.js",
+    "dev:server": "tsx src/server/openai_server.ts",
+    "cli": "tsx src/cli/index.js",
+    "test": "tsx tests/qvac.test.ts"
+  },
+  "keywords": [
+    "qvac",
+    "tether",
+    "local-ai",
+    "llm",
+    "rag",
+    "stt",
+    "tts",
+    "ocr",
+    "openai-compatible"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@qvac/sdk": "^0.1.0",
+    "express": "^4.21.2",
+    "commander": "^13.1.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

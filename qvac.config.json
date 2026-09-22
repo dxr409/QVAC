@@ -1,0 +1,41 @@
+{
+  "qvac": {
+    "version": "0.1.0",
+    "cacheDir": "~/.qvac/models",
+    "hardwareAcceleration": "auto",
+    "quantization": "Q4_K_M"
+  },
+  "models": {
+    "llm": {
+      "name": "llama-3.2-3b-instruct",
+      "format": "gguf",
+      "contextWindow": 4096,
+      "temperature": 0.7
+    },
+    "speechToText": {
+      "name": "whisper-small",
+      "language": "auto"
+    },
+    "textToSpeech": {
+      "name": "vits-local-speech",
+      "voice": "en_US-male-medium"
+    },
+    "ocr": {
+      "name": "florence-2-base",
+      "format": "onnx"
+    },
+    "embeddings": {
+      "name": "all-MiniLM-L6-v2",
+      "dimension": 384
+    },
+    "translation": {
+      "name": "m2m100_418M"
+    }
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8085,
+    "corsOrigin": "*",
+    "apiPrefix": "/v1"
+  }
+}

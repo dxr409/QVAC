@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# OS & Environment files
+.DS_Store
+Thumbs.db
+.env
+.env.local
+
+# Temporary audio / media files generated during testing
+*.wav
+*.mp3
+*.log
+
+# Cache directories
+.qvac/
+.cache/
