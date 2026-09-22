@@ -57,18 +57,33 @@ export function createOpenAIServer(configPath?: string) {
       }
     }
 
-    // Serve Frontend HTML
-    if ((url === '/' || url === '/index.html') && req.method === 'GET') {
-      const candidates = [
-        path.resolve(process.cwd(), 'public', 'index.html'),
-        '/Users/derlyight/Documents/untitled folder/public/index.html'
-      ];
-      for (const p of candidates) {
-        if (fs.existsSync(p)) {
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(fs.readFileSync(p, 'utf8'));
-          return;
-        }
+    // Serve Static Frontend Assets from public/
+    if (req.method === 'GET') {
+      const safePath = url === '/' ? '/index.html' : url;
+      const publicDir = path.resolve(process.cwd(), 'public');
+      const resolvedFilePath = path.join(publicDir, safePath.replace(/^\/+/, ''));
+
+      // Check if file is inside public directory to prevent directory traversal
+      if (resolvedFilePath.startsWith(publicDir) && fs.existsSync(resolvedFilePath) && fs.statSync(resolvedFilePath).isFile()) {
+        const ext = path.extname(resolvedFilePath).toLowerCase();
+        const mimeTypes: Record<string, string> = {
+          '.html': 'text/html; charset=utf-8',
+          '.css': 'text/css; charset=utf-8',
+          '.js': 'application/javascript; charset=utf-8',
+          '.json': 'application/json; charset=utf-8',
+          '.svg': 'image/svg+xml',
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.ico': 'image/x-icon',
+          '.woff2': 'font/woff2',
+          '.wav': 'audio/wav'
+        };
+
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(fs.readFileSync(resolvedFilePath));
+        return;
       }
     }
 
@@ -88,7 +103,8 @@ export function createOpenAIServer(configPath?: string) {
           'POST /v1/audio/speech',
           'POST /v1/ocr',
           'POST /v1/rag/index',
-          'POST /v1/rag/query'
+          'POST /v1/rag/query',
+          'POST /v1/translate'
         ]
       }));
       return;
@@ -210,6 +226,20 @@ export function createOpenAIServer(configPath?: string) {
       try {
         const { query } = body;
         const result = await rag.query(query || '');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: err.message } }));
+      }
+      return;
+    }
+
+    // POST /v1/translate (Tether QVAC Neural Translation)
+    if ((url === '/v1/translate' || pathWithoutV1 === '/translate') && req.method === 'POST') {
+      try {
+        const { text, targetLanguage, sourceLanguage } = body;
+        const result = await transOcr.translateText(text || '', targetLanguage || 'ru', sourceLanguage || 'auto');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (err: any) {

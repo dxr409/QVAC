@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
+  <!-- Tether Emblem Shield & Ring -->
+  <g id="tether-symbol">
+    <circle cx="24" cy="24" r="22" fill="#0D1926" stroke="#00D2AA" stroke-width="2"/>
+    <circle cx="24" cy="24" r="17" fill="url(#tether-radial)" opacity="0.6"/>
+    <!-- Tether T bar -->
+    <path d="M14 17.5H34V21H26.2V32.5H21.8V21H14V17.5Z" fill="#00D2AA"/>
+    <!-- Tether dynamic crossbars/orbit -->
+    <ellipse cx="24" cy="25" rx="11" ry="3.5" fill="none" stroke="#38BDF8" stroke-width="1.6" opacity="0.85"/>
+  </g>
+
+  <!-- QVAC Wordmark -->
+  <g id="qvac-text">
+    <text x="56" y="27" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="20" letter-spacing="1.5" fill="#FFFFFF">QVAC</text>
+    <text x="56" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-weight="600" font-size="9" letter-spacing="2" fill="#00D2AA">BY TETHER</text>
+  </g>
+
+  <!-- Gradients -->
+  <defs>
+    <radialGradient id="tether-radial" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00D2AA" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#00D2AA" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>

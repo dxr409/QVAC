@@ -1,341 +1,144 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tether QVAC Native Multimodal Suite</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-    
-    .chat-card {
-      background: #1e293b; border: 1px solid #334155; border-radius: 12px; width: 100%; max-width: 800px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;
-    }
-    .header {
-      background: #0f172a; padding: 16px 20px; border-bottom: 1px solid #334155;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .header h1 { font-size: 1.15rem; color: #38bdf8; display: flex; align-items: center; gap: 8px; }
-    .status-badge { font-size: 0.75rem; background: #064e3b; color: #34d399; padding: 4px 10px; border-radius: 20px; border: 1px solid #059669; }
-
-    .tools-bar {
-      background: #182234; padding: 10px 20px; border-bottom: 1px solid #334155; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-    }
-    .tool-btn {
-      background: #334155; color: #cbd5e1; border: 1px solid #475569; padding: 7px 14px; border-radius: 6px; font-size: 0.84rem; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
-    }
-    .tool-btn:hover { background: #475569; color: #ffffff; }
-
-    .chat-body { padding: 20px; min-height: 350px; max-height: 500px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-    .message { padding: 14px 18px; border-radius: 8px; max-width: 88%; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; position: relative; }
-    .user-msg { align-self: flex-end; background: #2563eb; color: #ffffff; }
-    .assistant-msg { align-self: flex-start; background: #334155; color: #f1f5f9; border-left: 3px solid #38bdf8; }
-    .system-info-msg { align-self: center; background: #0f172a; color: #38bdf8; border: 1px solid #0284c7; max-width: 95%; font-size: 0.85rem; text-align: center; }
-
-    .tts-btn {
-      margin-top: 8px; font-size: 0.75rem; background: #0f172a; color: #38bdf8; border: 1px solid #0284c7;
-      padding: 4px 10px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
-    }
-    .tts-btn:hover { background: #0284c7; color: #ffffff; }
-
-    .input-area { padding: 16px; background: #0f172a; border-top: 1px solid #334155; display: flex; gap: 10px; align-items: center; }
-    input[type="text"] { flex: 1; background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 12px 16px; border-radius: 8px; font-size: 0.95rem; outline: none; }
-    input[type="text"]:focus { border-color: #38bdf8; }
-    
-    .mic-btn { background: #334155; color: #f8fafc; border: 1px solid #475569; padding: 12px 14px; border-radius: 8px; cursor: pointer; font-size: 1.1rem; }
-    .mic-btn.recording { background: #dc2626; color: #ffffff; animation: pulse 1s infinite; }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
-
-    .send-btn { background: #38bdf8; color: #0f172a; font-weight: 600; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; }
-    .send-btn:hover { background: #0284c7; color: #ffffff; }
-    .send-btn:disabled { background: #475569; cursor: not-allowed; }
-
-    #fileInput, #ocrFileInput { display: none; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>QVAC — Local AI</title>
+  <link rel="icon" type="image/svg+xml" href="/qvac-logo.svg">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-  <div class="chat-card">
-    <div class="header">
-      <h1>⚡ Tether QVAC Native Multimodal AI</h1>
-      <span class="status-badge" id="statusBadge">Memory Enabled | QVAC Server</span>
-    </div>
+  <div class="app-layout">
 
-    <!-- Action Toolbar (Native Tether QVAC Server Endpoints) -->
-    <div class="tools-bar">
-      <button class="tool-btn" onclick="document.getElementById('ocrFileInput').click()">👁️ QVAC Native Server OCR</button>
-      <button class="tool-btn" onclick="document.getElementById('fileInput').click()">📚 QVAC Native Server RAG</button>
-      <button class="tool-btn" onclick="clearMemory()">🗑️ Clear Conversation Memory</button>
-      <input type="file" id="ocrFileInput" accept="image/*,.pdf,.txt,.md" onchange="runQvacNativeOcr(event)">
-      <input type="file" id="fileInput" accept=".txt,.md,.json,.csv" onchange="runQvacNativeRag(event)">
-    </div>
-
-    <!-- Chat Body -->
-    <div class="chat-body" id="chatBody">
-      <div class="message assistant-msg">
-        Welcome! This interface communicates directly with <b>Tether QVAC Server Native APIs</b> and retains <b>full conversation memory</b>.
-        <br><br>• Upload a document using 👁️ <b>QVAC Native Server OCR</b> — the model will remember the document context across all follow-up questions.
-        <br>• Click 🎙️ to record voice with <b>QVAC Native STT</b>.
-        <br>• Click 🔊 <b>Speak</b> on any answer to trigger <b>QVAC Native TTS</b>!
+    <!-- Минималистичный левый сайдбар (история диалогов) -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a class="brand" href="/">
+          <img src="/qvac-logo.svg" alt="QVAC Logo" class="brand-logo">
+        </a>
+        <button class="icon-btn-ghost" id="toggleSidebarBtn" title="Скрыть панель">✕</button>
       </div>
-    </div>
 
-    <!-- Input Bar -->
-    <div class="input-area">
-      <button class="mic-btn" id="micBtn" onclick="toggleQvacSpeechToText()" title="Record voice with QVAC STT">🎙️</button>
-      <input type="text" id="userInput" placeholder="Ask a question or request a summary..." onkeydown="if(event.key==='Enter') sendQuestion()">
-      <button class="send-btn" id="sendBtn" onclick="sendQuestion()">Send</button>
+      <button class="new-chat-btn" id="newChatBtn">
+        <span>+</span> Новый чат
+      </button>
+
+      <div class="sessions-nav">
+        <div class="sessions-label">Недавние диалоги</div>
+        <div class="sessions-list" id="sessionsList">
+          <!-- Рендерится через app.js -->
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="nodeStatusText">Локальный узел активен</span>
+        </div>
+        <button class="footer-btn" id="openSettingsBtn" title="Настройки">
+          ⚙️ Настройки
+        </button>
+      </div>
+    </aside>
+
+    <!-- Основная рабочая область (Фокус на диалоге) -->
+    <main class="main-content">
+
+      <!-- Верхняя аккуратная полоска -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn-ghost" id="openSidebarBtn" title="Показать меню" style="display:none;">
+            ☰
+          </button>
+          <div class="model-pill">
+            <span class="model-dot"></span>
+            <span id="activeModelName">llama-3.2-3b</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <button class="action-btn" id="clearChatBtn" title="Очистить переписку">
+            Очистить
+          </button>
+        </div>
+      </header>
+
+      <!-- Лента переписки -->
+      <div class="chat-container" id="chatFeed">
+        <!-- Сообщения или экран приветствия -->
+      </div>
+
+      <!-- Плавающая строка ввода (как в современных AI чатах) -->
+      <div class="input-wrapper">
+        <div class="input-card">
+          <!-- Полоска прикрепленных файлов (если загружено фото или документ) -->
+          <div class="attachments-strip" id="attachmentStrip"></div>
+
+          <!-- Индикатор записи голоса -->
+          <div class="recording-bar" id="recordingBar" style="display:none;">
+            <span class="recording-pulse-dot"></span>
+            <span>Идет запись голоса... Говорите в микрофон</span>
+          </div>
+
+          <div class="input-row">
+            <!-- Кнопка прикрепить файл (фото для OCR или документ для RAG) -->
+            <button class="tool-btn" id="attachFileBtn" title="Прикрепить фото (OCR) или документ (RAG)">
+              📎
+            </button>
+            <input type="file" id="fileHiddenInput" style="display:none;" accept="image/*,.pdf,.txt,.md,.json,.csv">
+
+            <!-- Кнопка голосового ввода -->
+            <button class="tool-btn" id="micBtn" title="Голосовой ввод">
+              🎙️
+            </button>
+
+            <!-- Поле ввода вопроса -->
+            <textarea
+              id="chatInput"
+              class="chat-textarea"
+              placeholder="Спросите что-нибудь, прикрепите фото или файл..."
+              rows="1"
+            ></textarea>
+
+            <!-- Кнопка отправки -->
+            <button class="send-btn" id="sendBtn" title="Отправить сообщение">
+              ↑
+            </button>
+          </div>
+        </div>
+        <div class="input-subtext">
+          Tether QVAC работает локально на вашем устройстве без облачных серверов
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Простое всплывающее окно настроек -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal-box">
+      <div class="modal-top">
+        <h3>Настройки QVAC</h3>
+        <button class="close-btn" id="closeSettingsBtn">✕</button>
+      </div>
+      <div class="modal-content">
+        <label class="setting-label">Адрес локального сервера</label>
+        <input type="text" class="setting-input" id="cfgApiBase" placeholder="http://127.0.0.1:8085">
+
+        <label class="setting-label" style="margin-top:14px;">Системный промпт</label>
+        <textarea class="setting-textarea" id="systemPromptInput" rows="3"></textarea>
+      </div>
+      <div class="modal-bottom">
+        <button class="save-btn" id="saveSettingsBtn">Сохранить</button>
+      </div>
     </div>
   </div>
 
-  <script>
-    const CHAT_URL = '/v1/chat/completions';
-    const OCR_URL = '/v1/ocr';
-    const STT_URL = '/v1/audio/transcriptions';
-    const TTS_URL = '/v1/audio/speech';
-    const RAG_INDEX_URL = '/v1/rag/index';
+  <!-- Уведомления -->
+  <div class="toast-box" id="toastContainer"></div>
 
-    // Full Multi-Turn Conversation Memory
-    let conversationHistory = [
-      {
-        role: 'system',
-        content: 'You are an expert AI assistant running on Tether QVAC local engine. Answer questions concisely and accurately based on full conversation history and any uploaded document context.'
-      }
-    ];
-
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let isRecording = false;
-
-    function clearMemory() {
-      conversationHistory = [conversationHistory[0]];
-      const chatBody = document.getElementById('chatBody');
-      const sysMsg = document.createElement('div');
-      sysMsg.className = 'message system-info-msg';
-      sysMsg.textContent = '🗑️ Conversation memory cleared.';
-      chatBody.appendChild(sysMsg);
-      chatBody.scrollTop = chatBody.scrollHeight;
-    }
-
-    async function sendQuestion(overrideUserPrompt) {
-      const inputEl = document.getElementById('userInput');
-      const question = overrideUserPrompt || inputEl.value.trim();
-      if (!question) return;
-
-      const chatBody = document.getElementById('chatBody');
-      const sendBtn = document.getElementById('sendBtn');
-
-      // Add to conversation history memory
-      conversationHistory.push({ role: 'user', content: question });
-
-      // Render User Message in UI
-      const userDiv = document.createElement('div');
-      userDiv.className = 'message user-msg';
-      userDiv.textContent = question;
-      chatBody.appendChild(userDiv);
-
-      if (!overrideUserPrompt) inputEl.value = '';
-      sendBtn.disabled = true;
-
-      // Render Assistant Placeholder
-      const assistantDiv = document.createElement('div');
-      assistantDiv.className = 'message assistant-msg';
-      assistantDiv.textContent = 'Thinking (QVAC Local Engine)...';
-      chatBody.appendChild(assistantDiv);
-      chatBody.scrollTop = chatBody.scrollHeight;
-
-      try {
-        // Send FULL conversation history memory to server
-        const response = await fetch(CHAT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: conversationHistory,
-            stream: false
-          })
-        });
-
-        const data = await response.json();
-        let replyText = 'Received response from local QVAC engine.';
-        if (data.choices && data.choices.length > 0) {
-          replyText = data.choices[0].message.content;
-        }
-
-        // Add assistant response to conversation history memory
-        conversationHistory.push({ role: 'assistant', content: replyText });
-
-        assistantDiv.innerHTML = `<div>${replyText}</div><button class="tts-btn" onclick="speakQvacAudio(this)">🔊 Speak Response (QVAC TTS)</button>`;
-      } catch (err) {
-        assistantDiv.textContent = 'Could not connect to QVAC local server.';
-      } finally {
-        sendBtn.disabled = false;
-        chatBody.scrollTop = chatBody.scrollHeight;
-      }
-    }
-
-    // Native Tether QVAC Server OCR Execution
-    async function runQvacNativeOcr(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const chatBody = document.getElementById('chatBody');
-      const infoDiv = document.createElement('div');
-      infoDiv.className = 'message system-info-msg';
-      infoDiv.textContent = `👁️ Sending "${file.name}" to Tether QVAC Native Server OCR...`;
-      chatBody.appendChild(infoDiv);
-      chatBody.scrollTop = chatBody.scrollHeight;
-
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const fileData = e.target.result;
-
-        try {
-          // Call Tether QVAC Server OCR Endpoint directly
-          const response = await fetch(OCR_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileData, fileName: file.name })
-          });
-
-          const data = await response.json();
-          const extractedText = data.extractedText || `Content extracted from ${file.name}`;
-
-          // Add Document Context into System Conversation History
-          conversationHistory.push({
-            role: 'system',
-            content: `Document titled "${file.name}" uploaded. Content:\n\n${extractedText}`
-          });
-
-          infoDiv.textContent = `✅ Tether QVAC Server OCR extracted text from "${file.name}". Document added to conversation memory.`;
-
-          // Automatically request a structured summary from the LLM
-          await sendQuestion(`Summarize the main topics and key insights from the uploaded document "${file.name}".`);
-        } catch (err) {
-          infoDiv.textContent = 'Failed to execute QVAC Server OCR.';
-        } finally {
-          chatBody.scrollTop = chatBody.scrollHeight;
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // Native Tether QVAC Server RAG Indexing
-    async function runQvacNativeRag(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const content = e.target.result;
-        const chatBody = document.getElementById('chatBody');
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'message system-info-msg';
-        infoDiv.textContent = `📚 Sending "${file.name}" to Tether QVAC Native Vector RAG...`;
-        chatBody.appendChild(infoDiv);
-
-        try {
-          const res = await fetch(RAG_INDEX_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, documentName: file.name })
-          });
-          const data = await res.json();
-
-          // Add to conversation memory
-          conversationHistory.push({
-            role: 'system',
-            content: `Document titled "${file.name}" indexed into QVAC vector memory. Content:\n\n${content}`
-          });
-
-          infoDiv.textContent = `✅ Successfully indexed "${file.name}" into QVAC vector memory (${data.chunksIndexed} chunks).`;
-          await sendQuestion(`Provide a summary of the newly indexed document "${file.name}".`);
-        } catch (err) {
-          infoDiv.textContent = 'Failed to index document in QVAC RAG.';
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    // Native Tether QVAC Server STT (Speech-to-Text)
-    async function toggleQvacSpeechToText() {
-      const micBtn = document.getElementById('micBtn');
-
-      if (!isRecording) {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          alert('Microphone access not supported in browser.');
-          return;
-        }
-
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          mediaRecorder = new MediaRecorder(stream);
-          audioChunks = [];
-
-          mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-          mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            micBtn.classList.remove('recording');
-
-            // Send to QVAC Native STT Server Endpoint
-            try {
-              const response = await fetch(STT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ audioData: 'microphone_recording.wav' })
-              });
-              const data = await response.json();
-              if (data.text) {
-                document.getElementById('userInput').value = data.text;
-              }
-            } catch (err) {}
-          };
-
-          mediaRecorder.start();
-          isRecording = true;
-          micBtn.classList.add('recording');
-        } catch (err) {
-          alert('Could not access microphone.');
-        }
-      } else {
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-          mediaRecorder.stop();
-        }
-        isRecording = false;
-        micBtn.classList.remove('recording');
-      }
-    }
-
-    // Native Tether QVAC Server TTS (Text-to-Speech)
-    async function speakQvacAudio(btnElement) {
-      const textToSpeak = btnElement.parentElement.querySelector('div').textContent;
-      btnElement.textContent = '⏳ QVAC TTS Synthesizing...';
-
-      try {
-        const response = await fetch(TTS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ input: textToSpeak })
-        });
-
-        if (response.ok) {
-          const blob = await response.blob();
-          const audioUrl = URL.createObjectURL(blob);
-          const audio = new Audio(audioUrl);
-          audio.play();
-          btnElement.textContent = '🔊 Playing QVAC Audio';
-          audio.onended = () => { btnElement.textContent = '🔊 Speak Response (QVAC TTS)'; };
-        } else {
-          const synth = window.speechSynthesis;
-          const utterance = new SpeechSynthesisUtterance(textToSpeak);
-          synth.speak(utterance);
-          btnElement.textContent = '🔊 Speaking...';
-          utterance.onend = () => { btnElement.textContent = '🔊 Speak Response (QVAC TTS)'; };
-        }
-      } catch (err) {
-        btnElement.textContent = '🔊 Speak Response (QVAC TTS)';
-      }
-    }
-  </script>
+  <script src="/app.js"></script>
 </body>
 </html>
