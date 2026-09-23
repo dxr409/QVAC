@@ -7,9 +7,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/cli/index.js",
-    "dev:server": "tsx src/server/openai_server.ts",
-    "cli": "tsx src/cli/index.js",
-    "test": "tsx tests/qvac.test.ts"
+    "dev:server": "node --experimental-strip-types src/server/openai_server.ts",
+    "cli": "node --experimental-strip-types src/cli/index.ts",
+    "test": "node --experimental-strip-types tests/qvac.test.ts"
   },
   "keywords": [
     "qvac",

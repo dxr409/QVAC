@@ -110,6 +110,19 @@ export function createOpenAIServer(configPath?: string) {
       return;
     }
 
+    // GET /v1/engine/status
+    if ((url === '/v1/engine/status' || pathWithoutV1 === '/engine/status') && req.method === 'GET') {
+      const backends = await llm.getBackendsStatus();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'online',
+        hardware: client.getHardwareDevice(),
+        defaultModel: config.models.llm.name,
+        backends
+      }));
+      return;
+    }
+
     // GET /v1/models (or /models)
     if ((url === '/v1/models' || pathWithoutV1 === '/models') && req.method === 'GET') {
       const loaded = await client.listModels();
@@ -126,7 +139,7 @@ export function createOpenAIServer(configPath?: string) {
     // POST /v1/chat/completions (Multi-turn Chat Completion)
     if ((url === '/v1/chat/completions' || pathWithoutV1 === '/chat/completions') && req.method === 'POST') {
       try {
-        const { messages, stream, model, temperature } = body;
+        const { messages, stream, model, temperature, baseUrl } = body;
         if (!messages || !Array.isArray(messages)) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: { message: 'Invalid messages array in request body' } }));
@@ -140,27 +153,41 @@ export function createOpenAIServer(configPath?: string) {
             'Connection': 'keep-alive'
           });
 
-          const streamGen = llm.streamChatCompletion(messages, { model, temperature });
-          for await (const chunk of streamGen) {
-            const sseData = {
-              id: `chatcmpl-${Date.now()}`,
+          try {
+            const streamGen = llm.streamChatCompletion(messages, { model, temperature, baseUrl });
+            for await (const chunk of streamGen) {
+              const sseData = {
+                id: `chatcmpl-${Date.now()}`,
+                object: 'chat.completion.chunk',
+                created: Math.floor(Date.now() / 1000),
+                model: model || config.models.llm.name,
+                choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }]
+              };
+              res.write(`data: ${JSON.stringify(sseData)}\n\n`);
+            }
+            res.write('data: [DONE]\n\n');
+          } catch (streamErr: any) {
+            const errData = {
+              id: `chatcmpl-err-${Date.now()}`,
               object: 'chat.completion.chunk',
               created: Math.floor(Date.now() / 1000),
               model: model || config.models.llm.name,
-              choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }]
+              choices: [{ index: 0, delta: { content: `\n[Ошибка: ${streamErr.message}]` }, finish_reason: 'stop' }]
             };
-            res.write(`data: ${JSON.stringify(sseData)}\n\n`);
+            res.write(`data: ${JSON.stringify(errData)}\n\n`);
+            res.write('data: [DONE]\n\n');
           }
-          res.write('data: [DONE]\n\n');
           res.end();
         } else {
-          const completion = await llm.generateChatCompletion(messages, { model, temperature });
+          const completion = await llm.generateChatCompletion(messages, { model, temperature, baseUrl });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(completion));
         }
       } catch (err: any) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: err.message || 'Internal Server Error' } }));
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { message: err.message || 'Internal Server Error' } }));
+        }
       }
       return;
     }

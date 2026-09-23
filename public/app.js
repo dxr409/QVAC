@@ -5,9 +5,16 @@
 (function () {
   'use strict';
 
+  const defaultApi = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+    ? window.location.origin
+    : 'http://127.0.0.1:8085';
+
   const state = {
-    apiBase: window.location.origin,
+    apiBase: defaultApi,
     activeModel: 'llama-3.2-3b-instruct',
+    backendType: 'auto',
+    customLlmUrl: '',
+    activeProviderName: 'QVAC Native',
     systemPrompt: 'You are an intelligent, helpful AI assistant running locally via Tether QVAC engine. Answer clearly, accurately, and concisely.',
     sessions: [],
     activeSessionId: null,
@@ -43,6 +50,11 @@
     closeSettingsBtn: document.getElementById('closeSettingsBtn'),
     saveSettingsBtn: document.getElementById('saveSettingsBtn'),
     cfgApiBase: document.getElementById('cfgApiBase'),
+    cfgBackend: document.getElementById('cfgBackend'),
+    customLlmRow: document.getElementById('customLlmRow'),
+    cfgCustomLlm: document.getElementById('cfgCustomLlm'),
+    checkConnBtn: document.getElementById('checkConnBtn'),
+    connStatusText: document.getElementById('connStatusText'),
     systemPromptInput: document.getElementById('systemPromptInput'),
     toastContainer: document.getElementById('toastContainer')
   };
@@ -52,25 +64,40 @@
     initSessions();
     setupEventListeners();
     checkHealth();
-    setInterval(checkHealth, 10000);
+    setInterval(checkHealth, 12000);
   }
 
   function loadSettings() {
     const savedApi = localStorage.getItem('qvac_api_base');
     if (savedApi) state.apiBase = savedApi;
 
+    const savedBackend = localStorage.getItem('qvac_backend');
+    if (savedBackend) state.backendType = savedBackend;
+
+    const savedCustomLlm = localStorage.getItem('qvac_custom_llm');
+    if (savedCustomLlm) state.customLlmUrl = savedCustomLlm;
+
     const savedPrompt = localStorage.getItem('qvac_system_prompt');
     if (savedPrompt) state.systemPrompt = savedPrompt;
 
     if (elements.cfgApiBase) elements.cfgApiBase.value = state.apiBase;
+    if (elements.cfgBackend) elements.cfgBackend.value = state.backendType;
+    if (elements.cfgCustomLlm) elements.cfgCustomLlm.value = state.customLlmUrl;
+    if (elements.customLlmRow) {
+      elements.customLlmRow.style.display = state.backendType === 'custom' ? 'block' : 'none';
+    }
     if (elements.systemPromptInput) elements.systemPromptInput.value = state.systemPrompt;
   }
 
   function saveSettings() {
-    state.apiBase = elements.cfgApiBase.value.trim().replace(/\/+$/, '') || window.location.origin;
+    state.apiBase = elements.cfgApiBase.value.trim().replace(/\/+$/, '') || defaultApi;
+    state.backendType = elements.cfgBackend ? elements.cfgBackend.value : 'auto';
+    state.customLlmUrl = elements.cfgCustomLlm ? elements.cfgCustomLlm.value.trim() : '';
     state.systemPrompt = elements.systemPromptInput.value.trim();
 
     localStorage.setItem('qvac_api_base', state.apiBase);
+    localStorage.setItem('qvac_backend', state.backendType);
+    localStorage.setItem('qvac_custom_llm', state.customLlmUrl);
     localStorage.setItem('qvac_system_prompt', state.systemPrompt);
 
     const session = getActiveSession();
@@ -86,12 +113,57 @@
 
   async function checkHealth() {
     try {
-      const res = await fetch(`${state.apiBase}/health`, { signal: AbortSignal.timeout(3000) });
+      const res = await fetch(`${state.apiBase}/v1/engine/status`, { signal: AbortSignal.timeout(3500) });
       if (res.ok) {
-        if (elements.nodeStatusText) elements.nodeStatusText.textContent = 'Локальный узел активен';
+        const data = await res.json();
+        const onlineBackends = data.backends ? data.backends.filter(b => b.isOnline) : [];
+        const external = onlineBackends.find(b => b.type !== 'native');
+
+        if (external) {
+          state.activeProviderName = external.name;
+          if (elements.activeModelName) elements.activeModelName.textContent = `${external.name}`;
+          if (elements.nodeStatusText) elements.nodeStatusText.textContent = `Подключен: ${external.name}`;
+        } else {
+          state.activeProviderName = 'QVAC Native';
+          if (elements.activeModelName) elements.activeModelName.textContent = 'QVAC Native (Metal/CPU)';
+          if (elements.nodeStatusText) elements.nodeStatusText.textContent = 'Локальный узел активен';
+        }
+      } else {
+        const fallbackRes = await fetch(`${state.apiBase}/health`, { signal: AbortSignal.timeout(2000) });
+        if (fallbackRes.ok && elements.nodeStatusText) {
+          elements.nodeStatusText.textContent = 'Локальный узел активен';
+        }
       }
     } catch (e) {
       if (elements.nodeStatusText) elements.nodeStatusText.textContent = 'Офлайн (проверьте сервер)';
+    }
+  }
+
+  async function testBackendConnection() {
+    if (!elements.connStatusText) return;
+    elements.connStatusText.textContent = 'Проверка...';
+    elements.connStatusText.style.color = 'var(--text-muted)';
+
+    try {
+      const res = await fetch(`${state.apiBase}/v1/engine/status`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        const data = await res.json();
+        const online = data.backends ? data.backends.filter(b => b.isOnline) : [];
+        const ext = online.find(b => b.type !== 'native');
+        if (ext) {
+          elements.connStatusText.textContent = `🟢 Найдено: ${ext.name}`;
+          elements.connStatusText.style.color = '#34d399';
+        } else {
+          elements.connStatusText.textContent = `⚡ QVAC Native Engine (${data.hardware || 'CPU'})`;
+          elements.connStatusText.style.color = 'var(--accent)';
+        }
+      } else {
+        elements.connStatusText.textContent = '⚠️ Сервер ответил с ошибкой';
+        elements.connStatusText.style.color = '#f59e0b';
+      }
+    } catch (err) {
+      elements.connStatusText.textContent = '❌ Не удалось подключиться к серверу';
+      elements.connStatusText.style.color = '#ef4444';
     }
   }
 
@@ -300,7 +372,7 @@
       renderAttachments();
     }
 
-    session.messages.push({ role: 'user', content: text });
+    session.messages.push({ role: 'user', content: fullPrompt });
     if (session.messages.filter(m => m.role === 'user').length === 1) {
       session.title = text.slice(0, 26) + (text.length > 26 ? '...' : '');
     }
@@ -332,15 +404,26 @@
 
     try {
       state.abortController = new AbortController();
+
+      const requestBody = {
+        model: state.activeModel,
+        messages: session.messages,
+        stream: true
+      };
+
+      if (state.backendType === 'custom' && state.customLlmUrl) {
+        requestBody.baseUrl = state.customLlmUrl;
+      } else if (state.backendType === 'ollama') {
+        requestBody.baseUrl = 'http://127.0.0.1:11434/v1';
+      } else if (state.backendType === 'lmstudio') {
+        requestBody.baseUrl = 'http://127.0.0.1:1234/v1';
+      }
+
       const res = await fetch(`${state.apiBase}/v1/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: state.abortController.signal,
-        body: JSON.stringify({
-          model: state.activeModel,
-          messages: session.messages,
-          stream: true
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -448,7 +531,7 @@
   async function toggleRecording() {
     if (!state.isRecording) {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showToast('Микрофон не поддерживается');
+        showToast('Запись аудио не поддерживается');
         return;
       }
 
@@ -457,25 +540,26 @@
         state.mediaRecorder = new MediaRecorder(stream);
         state.audioChunks = [];
 
-        state.mediaRecorder.ondataavailable = (e) => state.audioChunks.push(e.data);
-        state.mediaRecorder.onstop = async () => {
-          elements.micBtn.classList.remove('recording');
-          if (elements.recordingBar) elements.recordingBar.style.display = 'none';
+        state.mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) state.audioChunks.push(e.data);
+        };
 
+        state.mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(state.audioChunks, { type: 'audio/wav' });
+          showToast('Распознаю речь через Whisper...');
           try {
-            showToast('Распознавание речи...');
             const res = await fetch(`${state.apiBase}/v1/audio/transcriptions`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ audioData: 'rec.wav' })
+              body: JSON.stringify({ audioData: 'voice_recording.wav' })
             });
             const data = await res.json();
             if (data.text) {
               elements.chatInput.value = data.text;
-              elements.chatInput.focus();
+              sendMessage();
             }
           } catch (e) {
-            showToast('Ошибка распознавания');
+            showToast('Ошибка распознавания речи');
           }
         };
 
@@ -483,12 +567,13 @@
         state.isRecording = true;
         elements.micBtn.classList.add('recording');
         if (elements.recordingBar) elements.recordingBar.style.display = 'flex';
-      } catch (e) {
+      } catch (err) {
         showToast('Доступ к микрофону отклонен');
       }
     } else {
       if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
         state.mediaRecorder.stop();
+        state.mediaRecorder.stream.getTracks().forEach(t => t.stop());
       }
       state.isRecording = false;
       elements.micBtn.classList.remove('recording');
@@ -496,7 +581,6 @@
     }
   }
 
-  // Voice TTS
   async function speakAudio(text, btn) {
     const clean = text.replace(/[#*`_\[\]]/g, '').trim();
     if (!clean) return;
@@ -610,6 +694,18 @@
     if (elements.openSettingsBtn) elements.openSettingsBtn.onclick = () => elements.settingsModal.classList.add('open');
     if (elements.closeSettingsBtn) elements.closeSettingsBtn.onclick = () => elements.settingsModal.classList.remove('open');
     if (elements.saveSettingsBtn) elements.saveSettingsBtn.onclick = saveSettings;
+
+    if (elements.cfgBackend) {
+      elements.cfgBackend.onchange = () => {
+        if (elements.customLlmRow) {
+          elements.customLlmRow.style.display = elements.cfgBackend.value === 'custom' ? 'block' : 'none';
+        }
+      };
+    }
+
+    if (elements.checkConnBtn) {
+      elements.checkConnBtn.onclick = testBackendConnection;
+    }
   }
 
   window.qvac = {

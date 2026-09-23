@@ -784,6 +784,27 @@ pre code {
   cursor: pointer;
 }
 
+.save-btn:hover {
+  background: var(--accent-hover);
+}
+
+.test-conn-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.test-conn-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
 /* Toast */
 .toast-box {
   position: fixed;

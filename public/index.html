@@ -124,8 +124,27 @@
         <button class="close-btn" id="closeSettingsBtn">✕</button>
       </div>
       <div class="modal-content">
-        <label class="setting-label">Адрес локального сервера</label>
+        <label class="setting-label">Адрес сервера QVAC</label>
         <input type="text" class="setting-input" id="cfgApiBase" placeholder="http://127.0.0.1:8085">
+
+        <label class="setting-label" style="margin-top:14px;">Источник локальной LLM</label>
+        <select class="setting-input" id="cfgBackend">
+          <option value="auto">⚡ Автоопределение (QVAC Native + LM Studio + Ollama)</option>
+          <option value="native">⚡ QVAC Native Engine (Metal MPS / CPU TurboQuant)</option>
+          <option value="ollama">🦙 Ollama (http://127.0.0.1:11434/v1)</option>
+          <option value="lmstudio">🟣 LM Studio (http://127.0.0.1:1234/v1)</option>
+          <option value="custom">🌐 Пользовательский URL</option>
+        </select>
+
+        <div id="customLlmRow" style="margin-top:12px; display:none;">
+          <label class="setting-label">URL локальной LLM</label>
+          <input type="text" class="setting-input" id="cfgCustomLlm" placeholder="http://127.0.0.1:11434/v1">
+        </div>
+
+        <div style="margin-top:12px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <button type="button" class="test-conn-btn" id="checkConnBtn">🔍 Проверить статус LLM</button>
+          <span id="connStatusText" style="font-size:0.75rem; color:var(--text-muted); text-align:right;">Готово к проверке</span>
+        </div>
 
         <label class="setting-label" style="margin-top:14px;">Системный промпт</label>
         <textarea class="setting-textarea" id="systemPromptInput" rows="3"></textarea>
