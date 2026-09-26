@@ -1,6 +1,7 @@
 import http from 'node:http';
-import fs from 'node:fs';
+import fs, { realpathSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { QvacClient } from '../core/qvac_client.ts';
 import { QvacLLM } from '../features/llm.ts';
 import { QvacSpeech } from '../features/speech.ts';
@@ -284,11 +285,21 @@ export function createOpenAIServer(configPath?: string) {
   return { server, config, client };
 }
 
-// Start standalone server if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Start standalone server if executed directly.
+// Use realpathSync on both sides to handle macOS symlinks (/tmp → /private/tmp)
+// that cause a mismatch between import.meta.url and process.argv[1].
+(function startIfMain() {
+  try {
+    const thisFile = realpathSync(fileURLToPath(import.meta.url));
+    const mainFile = realpathSync(process.argv[1]);
+    if (thisFile !== mainFile) return;
+  } catch {
+    // If anything fails, just start — we're probably running directly
+  }
+
   const { server, config, client } = createOpenAIServer();
   server.listen(config.server.port, config.server.host, () => {
     console.log(`\n🚀 Tether QVAC Multimodal Server running at: http://${config.server.host}:${config.server.port}${config.server.apiPrefix}`);
     console.log(`⚡ Hardware Acceleration Mode: ${client.getHardwareDevice()}`);
   });
-}
+})();

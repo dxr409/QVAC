@@ -1,31 +1,43 @@
 /**
- * Tether QVAC — Minimalist AI Client
+ * Tether QVAC — AI Client
+ *
+ * Features:
+ *  - File memory: per-session persistent (files survive until user removes them)
+ *  - OCR: sends base64 image/PDF data to /v1/ocr; injected into every turn's system context
+ *  - STT: Web Speech API (SpeechRecognition) — real-time, zero server overhead
+ *  - TTS: Web Speech API (speechSynthesis) — clean markdown stripping, browser-native
+ *  - Multi-backend selector & health check in Settings
  */
 
 (function () {
   'use strict';
 
-  const defaultApi = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
-    ? window.location.origin
-    : 'http://127.0.0.1:8085';
+  const defaultApi =
+    window.location.protocol === 'http:' || window.location.protocol === 'https:'
+      ? window.location.origin
+      : 'http://127.0.0.1:8085';
 
+  const MAX_FILE_CHARS = 24000; // ~6k tokens — guard against localStorage overflow
+
+  // ── State ──────────────────────────────────────────────────────────────────
   const state = {
     apiBase: defaultApi,
     activeModel: 'llama-3.2-3b-instruct',
     backendType: 'auto',
     customLlmUrl: '',
     activeProviderName: 'QVAC Native',
-    systemPrompt: 'You are an intelligent, helpful AI assistant running locally via Tether QVAC engine. Answer clearly, accurately, and concisely.',
+    systemPrompt:
+      'You are an intelligent, helpful AI assistant running locally via Tether QVAC engine. Answer clearly, accurately, and concisely.',
     sessions: [],
     activeSessionId: null,
-    attachedFiles: [],
     isGenerating: false,
-    isRecording: false,
-    mediaRecorder: null,
-    audioChunks: [],
+    isListening: false,
+    recognition: null, // SpeechRecognition instance
+    ttsUtterance: null, // Current SpeechSynthesisUtterance
     abortController: null
   };
 
+  // ── DOM Elements ───────────────────────────────────────────────────────────
   const elements = {
     sidebar: document.getElementById('sidebar'),
     toggleSidebarBtn: document.getElementById('toggleSidebarBtn'),
@@ -59,10 +71,15 @@
     toastContainer: document.getElementById('toastContainer')
   };
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // INIT
+  // ══════════════════════════════════════════════════════════════════════════
+
   function init() {
     loadSettings();
     initSessions();
     setupEventListeners();
+    initSpeechRecognition();
     checkHealth();
     setInterval(checkHealth, 12000);
   }
@@ -90,10 +107,10 @@
   }
 
   function saveSettings() {
-    state.apiBase = elements.cfgApiBase.value.trim().replace(/\/+$/, '') || defaultApi;
+    state.apiBase = elements.cfgApiBase ? elements.cfgApiBase.value.trim().replace(/\/+$/, '') || defaultApi : defaultApi;
     state.backendType = elements.cfgBackend ? elements.cfgBackend.value : 'auto';
     state.customLlmUrl = elements.cfgCustomLlm ? elements.cfgCustomLlm.value.trim() : '';
-    state.systemPrompt = elements.systemPromptInput.value.trim();
+    state.systemPrompt = elements.systemPromptInput ? elements.systemPromptInput.value.trim() : state.systemPrompt;
 
     localStorage.setItem('qvac_api_base', state.apiBase);
     localStorage.setItem('qvac_backend', state.backendType);
@@ -106,8 +123,8 @@
     }
     saveSessions();
 
-    elements.settingsModal.classList.remove('open');
-    showToast('Настройки сохранены');
+    if (elements.settingsModal) elements.settingsModal.classList.remove('open');
+    showToast('Settings saved');
     checkHealth();
   }
 
@@ -122,26 +139,28 @@
         if (external) {
           state.activeProviderName = external.name;
           if (elements.activeModelName) elements.activeModelName.textContent = `${external.name}`;
-          if (elements.nodeStatusText) elements.nodeStatusText.textContent = `Подключен: ${external.name}`;
+          if (elements.nodeStatusText) elements.nodeStatusText.textContent = `Connected: ${external.name}`;
         } else {
           state.activeProviderName = 'QVAC Native';
           if (elements.activeModelName) elements.activeModelName.textContent = 'QVAC Native (Metal/CPU)';
-          if (elements.nodeStatusText) elements.nodeStatusText.textContent = 'Локальный узел активен';
+          if (elements.nodeStatusText) elements.nodeStatusText.textContent = 'Local node active';
         }
       } else {
         const fallbackRes = await fetch(`${state.apiBase}/health`, { signal: AbortSignal.timeout(2000) });
         if (fallbackRes.ok && elements.nodeStatusText) {
-          elements.nodeStatusText.textContent = 'Локальный узел активен';
+          elements.nodeStatusText.textContent = 'Local node active';
         }
       }
-    } catch (e) {
-      if (elements.nodeStatusText) elements.nodeStatusText.textContent = 'Офлайн (проверьте сервер)';
+    } catch {
+      if (elements.nodeStatusText) {
+        elements.nodeStatusText.textContent = 'Offline (check server)';
+      }
     }
   }
 
   async function testBackendConnection() {
     if (!elements.connStatusText) return;
-    elements.connStatusText.textContent = 'Проверка...';
+    elements.connStatusText.textContent = 'Testing connection...';
     elements.connStatusText.style.color = 'var(--text-muted)';
 
     try {
@@ -151,30 +170,38 @@
         const online = data.backends ? data.backends.filter(b => b.isOnline) : [];
         const ext = online.find(b => b.type !== 'native');
         if (ext) {
-          elements.connStatusText.textContent = `🟢 Найдено: ${ext.name}`;
+          elements.connStatusText.textContent = `🟢 Found: ${ext.name}`;
           elements.connStatusText.style.color = '#34d399';
         } else {
           elements.connStatusText.textContent = `⚡ QVAC Native Engine (${data.hardware || 'CPU'})`;
           elements.connStatusText.style.color = 'var(--accent)';
         }
       } else {
-        elements.connStatusText.textContent = '⚠️ Сервер ответил с ошибкой';
+        elements.connStatusText.textContent = '⚠️ Server responded with error';
         elements.connStatusText.style.color = '#f59e0b';
       }
     } catch (err) {
-      elements.connStatusText.textContent = '❌ Не удалось подключиться к серверу';
+      elements.connStatusText.textContent = '❌ Failed to connect to server';
       elements.connStatusText.style.color = '#ef4444';
     }
   }
 
-  // Sessions
+  // ══════════════════════════════════════════════════════════════════════════
+  // SESSIONS
+  // ══════════════════════════════════════════════════════════════════════════
+
   function initSessions() {
     try {
       const stored = localStorage.getItem('qvac_sessions');
       if (stored) state.sessions = JSON.parse(stored);
-    } catch (e) {
+    } catch {
       state.sessions = [];
     }
+
+    // Migrate old sessions that lack attachedFiles
+    state.sessions.forEach(s => {
+      if (!Array.isArray(s.attachedFiles)) s.attachedFiles = [];
+    });
 
     if (state.sessions.length === 0) {
       createNewSession();
@@ -182,6 +209,7 @@
       state.activeSessionId = state.sessions[0].id;
       renderSessionsList();
       renderChat();
+      renderAttachments();
     }
   }
 
@@ -197,19 +225,22 @@
   function createNewSession() {
     const newSession = {
       id: 'session-' + Date.now(),
-      title: 'Новый чат',
-      messages: [{ role: 'system', content: state.systemPrompt }]
+      title: 'New chat',
+      messages: [{ role: 'system', content: state.systemPrompt }],
+      attachedFiles: [] // ← persistent per-session file store
     };
     state.sessions.unshift(newSession);
     state.activeSessionId = newSession.id;
     saveSessions();
     renderChat();
+    renderAttachments();
   }
 
   function switchSession(id) {
     state.activeSessionId = id;
     renderSessionsList();
     renderChat();
+    renderAttachments();
   }
 
   function deleteSession(id, e) {
@@ -221,6 +252,7 @@
       state.activeSessionId = state.sessions[0].id;
       saveSessions();
       renderChat();
+      renderAttachments();
     }
   }
 
@@ -239,7 +271,7 @@
       const del = document.createElement('button');
       del.className = 'session-del-btn';
       del.innerHTML = '✕';
-      del.onclick = (e) => deleteSession(s.id, e);
+      del.onclick = e => deleteSession(s.id, e);
 
       item.appendChild(title);
       item.appendChild(del);
@@ -247,7 +279,10 @@
     });
   }
 
-  // Chat Rendering
+  // ══════════════════════════════════════════════════════════════════════════
+  // CHAT RENDERING
+  // ══════════════════════════════════════════════════════════════════════════
+
   function renderChat() {
     if (!elements.chatFeed) return;
     elements.chatFeed.innerHTML = '';
@@ -273,16 +308,16 @@
     wrap.innerHTML = `
       <div class="welcome-logo-badge">⚡</div>
       <h1>Tether QVAC</h1>
-      <p>Локальный искусственный интеллект прямо на вашем компьютере. Без интернета и облаков.</p>
+      <p>Local AI on your computer. No internet. No clouds.</p>
       <div class="quick-prompts-row">
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Расскажи о преимуществах локального ИИ Tether QVAC')">
-          💡 Что такое Tether QVAC?
+        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('What are the advantages of local AI with Tether QVAC?')">
+          💡 What is Tether QVAC?
         </button>
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Как загрузить документ в базу знаний RAG?')">
-          📚 Как загрузить документ?
+        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('How do I upload a document and ask questions about it?')">
+          📚 How to upload a document?
         </button>
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Покажи пример кода на Python для работы с локальной LLM')">
-          🐍 Пример кода на Python
+        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Show me a Python code example for local LLM')">
+          🐍 Python code example
         </button>
       </div>
     `;
@@ -296,7 +331,6 @@
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.innerHTML = renderMarkdown(content);
-
     row.appendChild(bubble);
 
     if (role === 'assistant') {
@@ -305,13 +339,13 @@
 
       const copyBtn = document.createElement('button');
       copyBtn.className = 'msg-action-btn';
-      copyBtn.innerHTML = '📋 Скопировать';
+      copyBtn.innerHTML = '📋 Copy';
       copyBtn.onclick = () => copyText(content, copyBtn);
 
       const speakBtn = document.createElement('button');
       speakBtn.className = 'msg-action-btn';
-      speakBtn.innerHTML = '🔊 Озвучить';
-      speakBtn.onclick = () => speakAudio(content, speakBtn);
+      speakBtn.innerHTML = '🔊 Speak';
+      speakBtn.onclick = () => speakText(content, speakBtn);
 
       actions.appendChild(copyBtn);
       actions.appendChild(speakBtn);
@@ -334,8 +368,8 @@
       return `
         <div class="code-box">
           <div class="code-top">
-            <span>${lang || 'код'}</span>
-            <button class="copy-btn" onclick="window.qvac.copyCode('${id}', this)">Копировать</button>
+            <span>${lang || 'code'}</span>
+            <button class="copy-btn" onclick="window.qvac.copyCode('${id}', this)">Copy</button>
           </div>
           <pre><code id="${id}">${code.trim()}</code></pre>
         </div>
@@ -357,24 +391,43 @@
     return out;
   }
 
-  // Send Question with Streaming
+  // ══════════════════════════════════════════════════════════════════════════
+  // SEND MESSAGE  (with persistent file context injection)
+  // ══════════════════════════════════════════════════════════════════════════
+
   async function sendMessage(overrideText) {
     const text = overrideText || elements.chatInput.value.trim();
     if (!text || state.isGenerating) return;
 
     const session = getActiveSession();
 
-    let fullPrompt = text;
-    if (state.attachedFiles.length > 0) {
-      const docContext = state.attachedFiles.map(f => `[Файл "${f.name}"]:\n${f.content}`).join('\n\n');
-      fullPrompt = `${fullPrompt}\n\n${docContext}`;
-      state.attachedFiles = [];
-      renderAttachments();
+    // Build messages array with file context block injected as a system message
+    let messagesForApi = [...session.messages];
+
+    if (session.attachedFiles && session.attachedFiles.length > 0) {
+      const fileContext = session.attachedFiles
+        .map(f => `[File "${f.name}"]:\n${f.content}`)
+        .join('\n\n---\n\n');
+
+      const fileContextMsg = {
+        role: 'system',
+        content: `[Attached Files — use these as your knowledge base to answer questions]\n\n${fileContext}`
+      };
+
+      const existingCtxIdx = messagesForApi.findIndex(
+        m => m.role === 'system' && m.content.startsWith('[Attached Files')
+      );
+      if (existingCtxIdx !== -1) {
+        messagesForApi[existingCtxIdx] = fileContextMsg;
+      } else {
+        messagesForApi.splice(1, 0, fileContextMsg);
+      }
     }
 
-    session.messages.push({ role: 'user', content: fullPrompt });
+    // Push the user message into session history
+    session.messages.push({ role: 'user', content: text });
     if (session.messages.filter(m => m.role === 'user').length === 1) {
-      session.title = text.slice(0, 26) + (text.length > 26 ? '...' : '');
+      session.title = text.slice(0, 26) + (text.length > 26 ? '…' : '');
     }
     saveSessions();
 
@@ -385,7 +438,7 @@
 
     renderChat();
 
-    // Create streaming placeholder
+    // Streaming placeholder
     state.isGenerating = true;
     elements.sendBtn.disabled = true;
 
@@ -402,12 +455,14 @@
     const bubbleEl = streamRow.querySelector('#streamingBubble');
     let accumulated = '';
 
+    messagesForApi.push({ role: 'user', content: text });
+
     try {
       state.abortController = new AbortController();
 
       const requestBody = {
         model: state.activeModel,
-        messages: session.messages,
+        messages: messagesForApi,
         stream: true
       };
 
@@ -446,11 +501,15 @@
           if (trimmed.startsWith('data: ')) {
             try {
               const data = JSON.parse(trimmed.slice(6));
-              const delta = data.choices?.[0]?.delta?.content || '';
+              const delta =
+                data.choices?.[0]?.delta?.content ??
+                data.choices?.[0]?.delta?.reasoning_content ??
+                '';
               accumulated += delta;
-              bubbleEl.innerHTML = renderMarkdown(accumulated) + '<span class="typing-cursor"></span>';
+              bubbleEl.innerHTML =
+                renderMarkdown(accumulated) + '<span class="typing-cursor"></span>';
               scrollToBottom();
-            } catch (e) {}
+            } catch {}
           }
         }
       }
@@ -459,7 +518,9 @@
       saveSessions();
       renderChat();
     } catch (err) {
-      const fallback = accumulated || `⚠️ Ошибка соединения с локальным сервером (${err.message}). Убедитесь, что сервер запущен на порту 8085.`;
+      const fallback =
+        accumulated ||
+        `⚠️ Connection error (${err.message}). Make sure the server is running on port 8085.`;
       session.messages.push({ role: 'assistant', content: fallback });
       saveSessions();
       renderChat();
@@ -470,14 +531,19 @@
     }
   }
 
-  // File Attachments (OCR for Images, RAG for Docs)
+  // ══════════════════════════════════════════════════════════════════════════
+  // FILE ATTACHMENTS  (OCR for images/PDFs, text extraction for docs)
+  // ══════════════════════════════════════════════════════════════════════════
+
   async function handleFileUpload(file) {
     if (!file) return;
 
-    if (file.type.startsWith('image/')) {
-      showToast(`Сканирую текст с "${file.name}"...`);
+    const session = getActiveSession();
+
+    if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+      showToast(`Extracting text from "${file.name}"…`);
       const reader = new FileReader();
-      reader.onload = async (e) => {
+      reader.onload = async e => {
         try {
           const res = await fetch(`${state.apiBase}/v1/ocr`, {
             method: 'POST',
@@ -485,148 +551,226 @@
             body: JSON.stringify({ fileData: e.target.result, fileName: file.name })
           });
           const data = await res.json();
-          const extracted = data.extractedText || 'Текст не распознан';
-          state.attachedFiles.push({ name: `OCR: ${file.name}`, content: extracted });
-          renderAttachments();
-          showToast(`Текст из "${file.name}" добавлен`);
+          const extracted = data.extractedText || 'No text extracted';
+
+          if (extracted.startsWith('[QVAC OCR]') || data.confidence < 0.4) {
+            showToast(`⚠️ ${extracted.replace('[QVAC OCR] ', '')}`);
+            return;
+          }
+
+          const truncated =
+            extracted.length > MAX_FILE_CHARS
+              ? extracted.slice(0, MAX_FILE_CHARS) + '\n\n[...truncated at 24 000 chars]'
+              : extracted;
+
+          addFileToSession(session, `📄 ${file.name}`, truncated);
+          showToast(`"${file.name}" added — ${truncated.length.toLocaleString()} chars extracted`);
         } catch (err) {
-          showToast('Не удалось распознать изображение');
+          showToast(`Could not read "${file.name}": ${err.message}`);
         }
       };
       reader.readAsDataURL(file);
     } else {
-      showToast(`Индексирую "${file.name}" в RAG...`);
+      showToast(`Reading "${file.name}"…`);
       const reader = new FileReader();
-      reader.onload = async (e) => {
+      reader.onload = e => {
         const text = e.target.result;
-        try {
-          await fetch(`${state.apiBase}/v1/rag/index`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: text, documentName: file.name })
-          });
-          state.attachedFiles.push({ name: file.name, content: text });
-          renderAttachments();
-          showToast(`Документ "${file.name}" добавлен в память`);
-        } catch (err) {
-          showToast('Не удалось загрузить документ');
-        }
+        const truncated =
+          text.length > MAX_FILE_CHARS
+            ? text.slice(0, MAX_FILE_CHARS) + '\n\n[...truncated]'
+            : text;
+        addFileToSession(session, `📎 ${file.name}`, truncated);
+        showToast(`"${file.name}" attached (${truncated.length.toLocaleString()} chars)`);
       };
       reader.readAsText(file);
     }
+
+    if (elements.fileHiddenInput) elements.fileHiddenInput.value = '';
+  }
+
+  function addFileToSession(session, name, content) {
+    if (!Array.isArray(session.attachedFiles)) session.attachedFiles = [];
+    const existing = session.attachedFiles.findIndex(f => f.name === name);
+    if (existing !== -1) {
+      session.attachedFiles[existing] = { name, content };
+    } else {
+      session.attachedFiles.push({ name, content });
+    }
+    saveSessions();
+    renderAttachments();
   }
 
   function renderAttachments() {
     if (!elements.attachmentStrip) return;
     elements.attachmentStrip.innerHTML = '';
-    state.attachedFiles.forEach((f, idx) => {
+
+    const session = getActiveSession();
+    if (!session || !session.attachedFiles || session.attachedFiles.length === 0) return;
+
+    session.attachedFiles.forEach((f, idx) => {
       const tag = document.createElement('div');
       tag.className = 'attach-tag';
-      tag.innerHTML = `<span>📎 ${f.name}</span> <button onclick="window.qvac.removeAttach(${idx})">✕</button>`;
+      tag.innerHTML = `
+        <span title="${f.content.slice(0, 120).replace(/"/g, '&quot;')}">${f.name}</span>
+        <button onclick="window.qvac.removeAttach(${idx})" title="Remove file">✕</button>
+      `;
       elements.attachmentStrip.appendChild(tag);
     });
   }
 
-  // Voice STT
-  async function toggleRecording() {
-    if (!state.isRecording) {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showToast('Запись аудио не поддерживается');
-        return;
+  // ══════════════════════════════════════════════════════════════════════════
+  // STT — Web Speech API (SpeechRecognition)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  function initSpeechRecognition() {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      if (elements.micBtn) {
+        elements.micBtn.disabled = true;
+        elements.micBtn.title = 'Speech recognition not supported — use Chrome or Edge';
+      }
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      state.isListening = true;
+      if (elements.micBtn) elements.micBtn.classList.add('recording');
+      if (elements.recordingBar) {
+        elements.recordingBar.style.display = 'flex';
+        const label = elements.recordingBar.querySelector('span');
+        if (label) label.textContent = '🎙️ Listening…';
+      }
+    };
+
+    recognition.onresult = e => {
+      let interimText = '';
+      let finalText = '';
+
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const transcript = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          finalText += transcript;
+        } else {
+          interimText += transcript;
+        }
       }
 
+      if (elements.chatInput) {
+        elements.chatInput.value = finalText || interimText;
+      }
+
+      if (elements.recordingBar) {
+        const label = elements.recordingBar.querySelector('span');
+        if (label) label.textContent = `🎙️ ${interimText || finalText || 'Listening…'}`;
+      }
+    };
+
+    recognition.onerror = e => {
+      console.error('[STT] Error:', e.error);
+      if (e.error === 'not-allowed') {
+        showToast('Microphone access denied — check browser permissions');
+      } else if (e.error !== 'aborted') {
+        showToast(`STT error: ${e.error}`);
+      }
+      stopListening();
+    };
+
+    recognition.onend = () => {
+      stopListening();
+      if (elements.chatInput) elements.chatInput.focus();
+    };
+
+    state.recognition = recognition;
+  }
+
+  function toggleRecording() {
+    if (!state.recognition) {
+      showToast('Speech recognition not supported — use Chrome or Edge');
+      return;
+    }
+
+    if (!state.isListening) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        state.mediaRecorder = new MediaRecorder(stream);
-        state.audioChunks = [];
-
-        state.mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) state.audioChunks.push(e.data);
-        };
-
-        state.mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(state.audioChunks, { type: 'audio/wav' });
-          showToast('Распознаю речь через Whisper...');
-          try {
-            const res = await fetch(`${state.apiBase}/v1/audio/transcriptions`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ audioData: 'voice_recording.wav' })
-            });
-            const data = await res.json();
-            if (data.text) {
-              elements.chatInput.value = data.text;
-              sendMessage();
-            }
-          } catch (e) {
-            showToast('Ошибка распознавания речи');
-          }
-        };
-
-        state.mediaRecorder.start();
-        state.isRecording = true;
-        elements.micBtn.classList.add('recording');
-        if (elements.recordingBar) elements.recordingBar.style.display = 'flex';
-      } catch (err) {
-        showToast('Доступ к микрофону отклонен');
+        state.recognition.start();
+      } catch (e) {
+        // Already started — ignore
       }
     } else {
-      if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
-        state.mediaRecorder.stop();
-        state.mediaRecorder.stream.getTracks().forEach(t => t.stop());
-      }
-      state.isRecording = false;
-      elements.micBtn.classList.remove('recording');
-      if (elements.recordingBar) elements.recordingBar.style.display = 'none';
+      state.recognition.stop();
     }
   }
 
-  async function speakAudio(text, btn) {
-    const clean = text.replace(/[#*`_\[\]]/g, '').trim();
+  function stopListening() {
+    state.isListening = false;
+    if (elements.micBtn) elements.micBtn.classList.remove('recording');
+    if (elements.recordingBar) elements.recordingBar.style.display = 'none';
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TTS — Web Speech API (speechSynthesis)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  function speakText(text, btn) {
+    if (!('speechSynthesis' in window)) {
+      showToast('Text-to-speech not supported in this browser');
+      return;
+    }
+
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      if (btn) btn.innerHTML = '🔊 Speak';
+      state.ttsUtterance = null;
+      return;
+    }
+
+    const clean = text
+      .replace(/```[\s\S]*?```/g, '') // remove code blocks
+      .replace(/`[^`]+`/g, '')
+      .replace(/[#*_\[\]]/g, '')
+      .replace(/\n+/g, ' ')
+      .trim();
+
     if (!clean) return;
 
-    btn.textContent = '⏳ Озвучка...';
-    try {
-      const res = await fetch(`${state.apiBase}/v1/audio/speech`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: clean })
-      });
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = 'en-US';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
 
-      if (res.ok) {
-        const blob = await res.blob();
-        const audio = new Audio(URL.createObjectURL(blob));
-        audio.play();
-        btn.textContent = '🔊 Играет...';
-        audio.onended = () => { btn.textContent = '🔊 Озвучить'; };
-      } else {
-        fallbackSpeech(clean, btn);
-      }
-    } catch (e) {
-      fallbackSpeech(clean, btn);
-    }
+    utterance.onstart = () => {
+      if (btn) btn.innerHTML = '🔊 Speaking… (click to stop)';
+    };
+    utterance.onend = () => {
+      if (btn) btn.innerHTML = '🔊 Speak';
+      state.ttsUtterance = null;
+    };
+    utterance.onerror = () => {
+      if (btn) btn.innerHTML = '🔊 Speak';
+      state.ttsUtterance = null;
+    };
+
+    state.ttsUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
   }
 
-  function fallbackSpeech(text, btn) {
-    if ('speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.onend = () => { btn.textContent = '🔊 Озвучить'; };
-      window.speechSynthesis.speak(u);
-      btn.textContent = '🔊 Говорит...';
-    } else {
-      btn.textContent = '🔊 Озвучить';
-      showToast('Синтез речи недоступен');
-    }
-  }
+  // ══════════════════════════════════════════════════════════════════════════
+  // HELPERS
+  // ══════════════════════════════════════════════════════════════════════════
 
-  // Helpers
   function copyText(text, btn) {
     navigator.clipboard.writeText(text).then(() => {
-      showToast('Скопировано');
+      showToast('Copied');
       if (btn) {
-        const old = btn.textContent;
-        btn.textContent = '✓ Скопировано';
-        setTimeout(() => { btn.textContent = old; }, 1400);
+        const old = btn.innerHTML;
+        btn.innerHTML = '✓ Copied';
+        setTimeout(() => { btn.innerHTML = old; }, 1400);
       }
     });
   }
@@ -641,10 +785,13 @@
     t.className = 'toast';
     t.textContent = msg;
     elements.toastContainer.appendChild(t);
-    setTimeout(() => t.remove(), 2500);
+    setTimeout(() => t.remove(), 2800);
   }
 
-  // Events
+  // ══════════════════════════════════════════════════════════════════════════
+  // EVENT LISTENERS
+  // ══════════════════════════════════════════════════════════════════════════
+
   function setupEventListeners() {
     if (elements.toggleSidebarBtn && elements.sidebar) {
       elements.toggleSidebarBtn.onclick = () => {
@@ -664,9 +811,11 @@
       elements.clearChatBtn.onclick = () => {
         const s = getActiveSession();
         s.messages = [s.messages[0]];
+        // NOTE: attached files are NOT cleared when chat history is cleared —
+        // user must explicitly remove them via ✕ buttons.
         saveSessions();
         renderChat();
-        showToast('История очищена');
+        showToast('Chat history cleared (files kept)');
       };
     }
 
@@ -674,9 +823,10 @@
     if (elements.chatInput) {
       elements.chatInput.oninput = () => {
         elements.chatInput.style.height = 'auto';
-        elements.chatInput.style.height = Math.min(elements.chatInput.scrollHeight, 140) + 'px';
+        elements.chatInput.style.height =
+          Math.min(elements.chatInput.scrollHeight, 140) + 'px';
       };
-      elements.chatInput.onkeydown = (e) => {
+      elements.chatInput.onkeydown = e => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
           sendMessage();
@@ -686,13 +836,15 @@
 
     if (elements.attachFileBtn && elements.fileHiddenInput) {
       elements.attachFileBtn.onclick = () => elements.fileHiddenInput.click();
-      elements.fileHiddenInput.onchange = (e) => handleFileUpload(e.target.files[0]);
+      elements.fileHiddenInput.onchange = e => handleFileUpload(e.target.files[0]);
     }
 
     if (elements.micBtn) elements.micBtn.onclick = toggleRecording;
 
-    if (elements.openSettingsBtn) elements.openSettingsBtn.onclick = () => elements.settingsModal.classList.add('open');
-    if (elements.closeSettingsBtn) elements.closeSettingsBtn.onclick = () => elements.settingsModal.classList.remove('open');
+    if (elements.openSettingsBtn)
+      elements.openSettingsBtn.onclick = () => elements.settingsModal.classList.add('open');
+    if (elements.closeSettingsBtn)
+      elements.closeSettingsBtn.onclick = () => elements.settingsModal.classList.remove('open');
     if (elements.saveSettingsBtn) elements.saveSettingsBtn.onclick = saveSettings;
 
     if (elements.cfgBackend) {
@@ -708,15 +860,23 @@
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // PUBLIC API  (window.qvac)
+  // ══════════════════════════════════════════════════════════════════════════
+
   window.qvac = {
-    sendQuick: (txt) => sendMessage(txt),
+    sendQuick: txt => sendMessage(txt),
     copyCode: (id, btn) => {
       const code = document.getElementById(id);
       if (code) copyText(code.textContent, btn);
     },
-    removeAttach: (idx) => {
-      state.attachedFiles.splice(idx, 1);
+    removeAttach: idx => {
+      const session = getActiveSession();
+      if (!session || !session.attachedFiles) return;
+      session.attachedFiles.splice(idx, 1);
+      saveSessions();
       renderAttachments();
+      showToast('File removed from session');
     }
   };
 

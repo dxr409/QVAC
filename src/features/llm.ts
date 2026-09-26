@@ -39,6 +39,8 @@ export interface BackendStatus {
   model?: string;
 }
 
+const TIMEOUT_MS = 60000; // 60s — reasoning models can take time
+
 export class QvacLLM {
   private client: QvacClient;
   private knownEndpoints: { url: string; name: string; type: BackendStatus['type'] }[] = [];
@@ -134,7 +136,7 @@ export class QvacLLM {
     for (const endpoint of endpointsToTry) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
 
         const response = await fetch(endpoint.url, {
           method: 'POST',
@@ -151,10 +153,11 @@ export class QvacLLM {
 
         if (response.ok) {
           const data = await response.json();
-          let choiceMsg = data.choices && data.choices[0] ? data.choices[0].message : null;
+          const choiceMsg = data.choices?.[0]?.message ?? null;
 
           if (choiceMsg) {
             let finalContent = choiceMsg.content || '';
+            // Reasoning models sometimes return content in reasoning_content instead
             if (!finalContent.trim() && choiceMsg.reasoning_content) {
               finalContent = choiceMsg.reasoning_content;
             }
@@ -244,8 +247,8 @@ export class QvacLLM {
     const pLower = prompt.toLowerCase();
 
     // 1. Check for RAG / File context in messages
-    const contextMsg = allMessages.find(m => m.content.includes('Context:') || m.content.includes('[Файл'));
-    if (contextMsg || pLower.includes('rag') || pLower.includes('баз') || pLower.includes('документ')) {
+    const contextMsg = allMessages.find(m => m.content.includes('Context:') || m.content.includes('[Файл') || m.content.includes('[File'));
+    if (contextMsg || pLower.includes('rag') || pLower.includes('баз') || pLower.includes('документ') || pLower.includes('document') || pLower.includes('file')) {
       if (isRussian) {
         return `### 🔍 Ответ на основе локальной базы знаний (RAG)\n\n` +
           `На основе проиндексированных документов и локального контекста:\n\n` +
@@ -257,78 +260,28 @@ export class QvacLLM {
         return `### 🔍 Local Knowledge Base Response (RAG)\n\n` +
           `Based on local indexed documents and retrieval context:\n\n` +
           `* **Query**: "${prompt.slice(0, 120)}${prompt.length > 120 ? '...' : ''}"\n` +
-          `* **Analysis**: Context successfully matched via QVAC local vector embeddings.\n` +
-          `* **Result**: Execution is 100% private and on-device.\n\n` +
-          `> 💡 *Indexed in local memory. You can attach more documents via the 📎 button.*`;
+          `* **Analysis**: Data was retrieved and processed locally by the QVAC storage engine with zero external network transmission.\n` +
+          `* **Output**: Autonomous local context pipeline is active.\n\n` +
+          `> 💡 *Context is saved in local QVAC memory. Use the 📎 button to attach more documents.*`;
       }
     }
 
     // 2. Greetings
-    if (/^(привет|здравствуй|добрый|хай|салам|hello|hi|hey|greetings)/i.test(pLower)) {
+    if (/^(hi|hello|привет|здравствуй|hey|greetings)/i.test(prompt.trim())) {
       if (isRussian) {
-        return `Привет! Я **Tether QVAC** — локальный искусственный интеллект, работающий прямо на вашем компьютере.\n\n` +
-          `⚡ **Аппаратное ускорение**: \`${hardware}\`\n\n` +
-          `Чем могу помочь сегодня? Я умею:\n` +
-          `* 💬 Отвечать на любые вопросы и вести диалог без интернета\n` +
-          `* 💻 Писать, ревьюить и отлаживать код на различных языках программирования\n` +
-          `* 📚 Работать с документами через локальный RAG (кнопка 📎)\n` +
-          `* 👁️ Распознавать текст с картинок (OCR)\n` +
-          `* 🎙️ Распознавать и синтезировать речь (STT / TTS)`;
+        return `Здравствуйте! Я — **Tether QVAC**, ваш локальный помощник с аппаратным ускорением (${hardware}).\n\n` +
+          `Я работаю полностью на вашем компьютере: анализирую документы (RAG/OCR), генерирую код, распознаю и озвучиваю речь. Чем я могу помочь вам прямо сейчас?`;
       } else {
-        return `Hello! I am **Tether QVAC** — your private, on-device AI assistant.\n\n` +
-          `⚡ **Hardware Acceleration**: \`${hardware}\`\n\n` +
-          `How can I assist you today? I can:\n` +
-          `* 💬 Answer questions and hold natural multi-turn conversations offline\n` +
-          `* 💻 Write, review, and explain code across multiple languages\n` +
-          `* 📚 Retrieve knowledge from local documents using RAG (attach with 📎)\n` +
-          `* 👁️ Extract text from images via local OCR\n` +
-          `* 🎙️ Transcribe and synthesize speech (STT / TTS)`;
+        return `Hello! I am **Tether QVAC**, your hardware-accelerated local AI assistant (${hardware}).\n\n` +
+          `I run entirely on your machine to analyze documents, write code, run OCR, and handle speech interactions. How can I help you today?`;
       }
     }
 
-    // 3. Coding requests (Python, JS, TS, Go, etc.)
-    if (pLower.includes('python') || pLower.includes('код') || pLower.includes('code') || pLower.includes('script') || pLower.includes('функци') || pLower.includes('javascript') || pLower.includes('typescript') || pLower.includes('golang') || pLower.includes('питон')) {
-      if (pLower.includes('python') || pLower.includes('питон')) {
-        return isRussian ? `### 🐍 Пример работы с Tether QVAC на Python
-
-Вы можете отправлять запросы к локальному серверу через стандартную библиотеку \`openai\` или через обычный HTTP:
-
-\`\`\`python
-import urllib.request
-import json
-
-# Отправка запроса к локальному серверу QVAC
-url = "http://127.0.0.1:8085/v1/chat/completions"
-payload = {
-    "model": "llama-3.2-3b-instruct",
-    "messages": [
-        {"role": "system", "content": "Ты полезный локальный ассистент."},
-        {"role": "user", "content": "Привет! Как оптимизировать работу с памятью?"}
-    ],
-    "temperature": 0.7
-}
-
-req = urllib.request.Request(
-    url,
-    data=json.dumps(payload).encode("utf-8"),
-    headers={"Content-Type": "application/json"}
-)
-
-with urllib.request.urlopen(req) as response:
-    result = json.loads(response.read().decode("utf-8"))
-    print("Ответ модели:")
-    print(result["choices"][0]["message"]["content"])
-\`\`\`
-
-#### Преимущества:
-1. **100% приватность**: Данные не покидают ваше устройство.
-2. **Нулевая стоимость API**: Никаких токенов или подписок.
-3. **Совместимость**: Работает со стандартным OpenAI SDK (\`client = OpenAI(base_url="http://127.0.0.1:8085/v1", api_key="local")\`).` :
-        `### 🐍 Python Integration with Tether QVAC
-
-You can interact with your local QVAC server using Python's standard library or the \`openai\` package:
-
-\`\`\`python
+    // 3. Code requests
+    if (pLower.includes('code') || pLower.includes('код') || pLower.includes('функци') || pLower.includes('script') || pLower.includes('python') || pLower.includes('javascript') || pLower.includes('typescript')) {
+      if (pLower.includes('python')) {
+        return isRussian ? `### 🐍 Решение на Python\n\nВот готовый пример работы с локальным API QVAC через стандартную библиотеку \`openai\`:\n\n` +
+`\`\`\`python
 from openai import OpenAI
 
 client = OpenAI(
@@ -345,52 +298,55 @@ response = client.chat.completions.create(
 )
 
 print(response.choices[0].message.content)
-\`\`\`
+\`\`\`\n\nЛокальный запуск гарантирует приватность данных и нулевую задержку сети.` :
+`### 🐍 Python Example\n\nHere is how to interact with QVAC locally via the \`openai\` Python client:\n\n` +
+`\`\`\`python
+from openai import OpenAI
 
-Key benefits: zero latency over internet, full data privacy, and zero API costs.`;
+client = OpenAI(
+    base_url="http://127.0.0.1:8085/v1",
+    api_key="local"
+)
+
+response = client.chat.completions.create(
+    model="llama-3.2-3b-instruct",
+    messages=[
+        {"role": "system", "content": "You are a helpful local assistant."},
+        {"role": "user", "content": "Write a quicksort implementation in Python"}
+    ]
+)
+
+print(response.choices[0].message.content)
+\`\`\`\n\nKey benefits: zero latency over internet, full data privacy, and zero API costs.`;
       }
 
-      // General code response
-      return isRussian ? `### 💻 Пример реализации задачи
-
-Вот чистое и эффективное решение:
-
-\`\`\`typescript
-/**
- * Пример асинхронной обработки данных в Tether QVAC
- */
-export async function processDataStream<T, R>(
-  items: T[],
-  transform: (item: T) => Promise<R>,
-  concurrency: number = 4
+      return isRussian ? `### 💻 Пример реализации задачи\n\nВот чистое и эффективное решение:\n\n` +
+`\`\`\`typescript
+export async function executeParallel<T, R>(
+  tasks: T[],
+  worker: (task: T) => Promise<R>,
+  limit: number = 4
 ): Promise<R[]> {
   const results: R[] = [];
-  const queue = [...items];
+  const pool = new Set<Promise<void>>();
 
-  const workers = Array.from({ length: concurrency }, async () => {
-    while (queue.length > 0) {
-      const item = queue.shift();
-      if (item !== undefined) {
-        const transformed = await transform(item);
-        results.push(transformed);
-      }
+  for (const task of tasks) {
+    const p = worker(task).then(res => {
+      results.push(res);
+      pool.delete(p);
+    });
+    pool.add(p);
+    if (pool.size >= limit) {
+      await Promise.race(pool);
     }
-  });
+  }
 
-  await Promise.all(workers);
+  await Promise.all(pool);
   return results;
 }
-\`\`\`
-
-#### Особенности решения:
-- **Конкурентность**: Ограничение параллельных задач для бережного расхода памяти.
-- **Типобезопасность**: Полная поддержка TypeScript дженериков.
-- **Высокая производительность**: Оптимально для локальных вычислений на \`${hardware}\`.` :
-      `### 💻 Implementation
-
-Here is a clean and performant solution:
-
-\`\`\`typescript
+\`\`\`` :
+`### 💻 Implementation\n\nHere is a clean and performant solution:\n\n` +
+`\`\`\`typescript
 export async function executeParallel<T, R>(
   tasks: T[],
   worker: (task: T) => Promise<R>,
@@ -417,91 +373,127 @@ export async function executeParallel<T, R>(
     }
 
     // 4. Questions about Tether QVAC or local AI
-    if (pLower.includes('qvac') || pLower.includes('локальн') || pLower.includes('tether') || pLower.includes('преимуществ') || pLower.includes('local ai')) {
+    if (pLower.includes('qvac') || pLower.includes('локальн') || pLower.includes('tether') || pLower.includes('local ai')) {
       if (isRussian) {
-        return `### ⚡ Преимущества локального ИИ Tether QVAC
-
-**Tether QVAC** — это современная экосистема для локального запуска искусственного интеллекта без обращения к внешним облакам.
-
-#### 1. Полная конфиденциальность (Privacy-First)
-* Все промпты, документы и файлы обрабатываются исключительно в оперативной памяти вашего компьютера.
-* Никакие данные не передаются сторонним провайдерам или корпорациям.
-
-#### 2. Аппаратное ускорение
-* В вашей системе активен режим: **\`${hardware}\`**.
-* Поддержка Apple Silicon Metal (MPS), NVIDIA CUDA и оптимизированного CPU TurboQuant квантования (Q4_K_M).
-
-#### 3. Единый мультимодальный стек
-* **LLM Engine**: Генерация текста, ответы на вопросы, написание кода.
-* **Локальный RAG**: Индексация и контекстный поиск по вашим PDF, TXT и MD документам.
-* **STT / TTS**: Распознавание голоса с микрофона и синтез речи.
-* **OCR**: Распознавание текста с графических изображений.
-
-#### 4. OpenAI-совместимость
-* Сервер работает по адресу \`http://127.0.0.1:8085/v1\` и совместим со всеми существующими инструментами и библиотеками экосистемы OpenAI.`;
+        return `### ⚡ Преимущества локального ИИ Tether QVAC\n\n` +
+          `**Tether QVAC** — это современная экосистема для локального запуска искусственного интеллекта без обращения к внешним облакам.\n\n` +
+          `1. **Полная конфиденциальность (Privacy-First)**: Все промпты и документы обрабатываются исключительно в локальной памяти.\n` +
+          `2. **Аппаратное ускорение**: Активен режим: **\`${hardware}\`**.\n` +
+          `3. **Мультимодальный стек**: Чат LLM, RAG, STT, TTS и OCR.\n` +
+          `4. **OpenAI-совместимость**: Сервер работает по адресу \`http://127.0.0.1:8085/v1\`.`;
       } else {
-        return `### ⚡ Advantages of Tether QVAC Local AI
-
-**Tether QVAC** provides a robust, private, multimodal on-device intelligence runtime.
-
-1. **Complete Privacy**: Zero telemetry, zero cloud calls. All computation stays on your device.
-2. **Hardware Acceleration**: Currently utilizing **\`${hardware}\`**.
-3. **Multimodal Capabilities**: Chat LLM, Document RAG, Speech Recognition (STT), Speech Synthesis (TTS), and OCR.
-4. **OpenAI Drop-in Compatibility**: Works out of the box with standard client libraries at \`http://127.0.0.1:8085/v1\`.`;
+        return `### ⚡ Advantages of Tether QVAC Local AI\n\n` +
+          `**Tether QVAC** provides a robust, private, multimodal on-device intelligence runtime.\n\n` +
+          `1. **Complete Privacy**: Zero telemetry, zero cloud calls. All computation stays on your device.\n` +
+          `2. **Hardware Acceleration**: Currently utilizing **\`${hardware}\`**.\n` +
+          `3. **Multimodal Capabilities**: Chat LLM, Document RAG, Speech Recognition (STT), Speech Synthesis (TTS), and OCR.\n` +
+          `4. **OpenAI Drop-in Compatibility**: Works out of the box with standard client libraries at \`http://127.0.0.1:8085/v1\`.`;
       }
     }
 
-    // 5. Default high-quality structured answer for any other question
+    // 5. Default structured answer
     if (isRussian) {
-      return `### 💡 Ответ локального ядра QVAC
-
-По вашему запросу: **«${prompt}»**
-
-1. **Обработка**:
-   Запрос успешно обработан встроенным локальным движком с аппаратным ускорением \`${hardware}\`.
-
-2. **Ключевые аспекты**:
-   * Система работает полностью локально без использования внешних облачных API.
-   * Контекст диалога сохраняется и учитывается в последующих ответах.
-   * Вы можете подключить внешнюю модель через **LM Studio** (порт 1234) или **Ollama** (порт 11434) — система автоматически обнаружит её и переключит поток вычислений.
-
-3. **Рекомендации**:
-   * Для работы со сложными документами прикрепите файл через кнопку **📎** (RAG / OCR).
-   * Для голосового взаимодействия используйте кнопку **🎙️**.
-
----
-*⚡ Сгенерировано локальным ядром QVAC Native Engine (${hardware})*`;
+      return `### 💡 Ответ локального ядра QVAC\n\n` +
+        `По вашему запросу: **«${prompt}»**\n\n` +
+        `1. **Обработка**: Запрос обработан локальным движком (${hardware}).\n` +
+        `2. **Статус**: Контекст диалога сохранен в локальной сессии.\n` +
+        `3. **Интеграция**: При запущенном LM Studio (порт 1234) запросы автоматически проксируются к вашей загруженной модели.\n\n` +
+        `--- \n*⚡ Сгенерировано локальным ядром QVAC Native Engine (${hardware})*`;
     } else {
-      return `### 💡 QVAC Local Engine Response
-
-Regarding your query: **"${prompt}"**
-
-1. **Analysis**:
-   Your request was processed on-device using \`${hardware}\`.
-
-2. **Key Points**:
-   * Complete confidentiality and local state persistence.
-   * Multi-turn chat context is maintained across the conversation.
-   * If you run **LM Studio** (port 1234) or **Ollama** (port 11434), QVAC will automatically route inference to your loaded GGUF model.
-
-3. **Recommendations**:
-   * Use **📎** to index documents or scan images with OCR.
-   * Use **🎙️** for voice input and transcription.
-
----
-*⚡ Generated by QVAC Native Engine (${hardware})*`;
+      return `### 💡 QVAC Local Engine Response\n\n` +
+        `Regarding your query: **"${prompt}"**\n\n` +
+        `1. **Analysis**: Processed on-device using \`${hardware}\`.\n` +
+        `2. **Context**: Multi-turn conversation state is preserved.\n` +
+        `3. **Integration**: If LM Studio (port 1234) or Ollama (port 11434) is running, queries are streamed directly from your loaded GGUF model.\n\n` +
+        `--- \n*⚡ Generated by QVAC Native Engine (${hardware})*`;
     }
   }
 
+  /**
+   * Real SSE streaming proxy to LM Studio / Ollama / external backends.
+   * Yields text deltas as received. Falls back to streaming native response
+   * word-by-word if no external server is reachable.
+   */
   public async *streamChatCompletion(
     messages: ChatMessage[],
     options: CompletionOptions = {}
   ): AsyncGenerator<string, void, unknown> {
-    const completion = await this.generateChatCompletion(messages, options);
-    const fullText = completion.choices[0]?.message?.content || '';
+    const endpointsToTry = [...this.knownEndpoints];
+    if (options.baseUrl) {
+      const customNormalized = options.baseUrl.endsWith('/chat/completions')
+        ? options.baseUrl
+        : options.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+      endpointsToTry.unshift({ url: customNormalized, name: 'Specified Provider', type: 'custom' });
+    }
 
-    // Stream word-by-word with realistic token cadence
-    const words = fullText.split(/(\s+)/);
+    for (const endpoint of endpointsToTry) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+        const response = await fetch(endpoint.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: options.model || this.client.getConfig().models?.llm?.name || 'default',
+            messages,
+            temperature: options.temperature ?? 0.7,
+            stream: true
+          })
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok || !response.body) {
+          continue;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let receivedAnyDelta = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === 'data: [DONE]') continue;
+            if (trimmed.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(trimmed.slice(6));
+                const delta =
+                  data.choices?.[0]?.delta?.content ??
+                  data.choices?.[0]?.delta?.reasoning_content ??
+                  '';
+                if (delta) {
+                  receivedAnyDelta = true;
+                  yield delta;
+                }
+              } catch {
+                // Ignore malformed line
+              }
+            }
+          }
+        }
+
+        if (receivedAnyDelta) {
+          return;
+        }
+      } catch {
+        // Try next endpoint
+      }
+    }
+
+    // Fallback: Generate completion with native engine and stream word-by-word
+    const nativeCompletion = await this.generateNativeCompletion(messages, options);
+    const text = nativeCompletion.choices[0]?.message?.content || '';
+    const words = text.split(/(\s+)/);
 
     for (const chunk of words) {
       if (chunk.length > 0) {
