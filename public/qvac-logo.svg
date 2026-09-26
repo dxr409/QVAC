@@ -9,10 +9,10 @@
     <ellipse cx="24" cy="25" rx="11" ry="3.5" fill="none" stroke="#38BDF8" stroke-width="1.6" opacity="0.85"/>
   </g>
 
-  <!-- QVAC Wordmark -->
+  <!-- NORA Wordmark -->
   <g id="qvac-text">
-    <text x="56" y="27" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="20" letter-spacing="1.5" fill="#FFFFFF">QVAC</text>
-    <text x="56" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-weight="600" font-size="9" letter-spacing="2" fill="#00D2AA">BY TETHER</text>
+    <text x="56" y="27" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="20" letter-spacing="1.5" fill="#FFFFFF">NORA</text>
+    <text x="56" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-weight="600" font-size="9" letter-spacing="2" fill="#00D2AA">LOCAL AI</text>
   </g>
 
   <!-- Gradients -->

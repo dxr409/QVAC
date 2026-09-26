@@ -59,7 +59,7 @@ export function createOpenAIServer(configPath?: string) {
     }
 
     // Serve Static Frontend Assets from public/
-    if (req.method === 'GET') {
+    if (req.method === 'GET' || req.method === 'HEAD') {
       const safePath = url === '/' ? '/index.html' : url;
       const publicDir = path.resolve(process.cwd(), 'public');
       const resolvedFilePath = path.join(publicDir, safePath.replace(/^\/+/, ''));
@@ -82,7 +82,12 @@ export function createOpenAIServer(configPath?: string) {
         };
 
         const contentType = mimeTypes[ext] || 'application/octet-stream';
-        res.writeHead(200, { 'Content-Type': contentType });
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        });
         res.end(fs.readFileSync(resolvedFilePath));
         return;
       }

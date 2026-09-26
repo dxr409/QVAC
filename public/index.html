@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>QVAC — Local AI</title>
+  <title>Nora — Local AI</title>
   <link rel="icon" type="image/svg+xml" href="/qvac-logo.svg">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css?v=4.0">
 </head>
 <body>
 
@@ -15,7 +15,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <a class="brand" href="/">
-          <img src="/qvac-logo.svg" alt="QVAC Logo" class="brand-logo">
+          <img src="/qvac-logo.svg" alt="Nora Logo" class="brand-logo">
         </a>
         <button class="icon-btn-ghost" id="toggleSidebarBtn" title="Скрыть панель">✕</button>
       </div>
@@ -53,7 +53,7 @@
           </button>
           <div class="model-pill">
             <span class="model-dot"></span>
-            <span id="activeModelName">llama-3.2-3b</span>
+            <span id="activeModelName">Nora</span>
           </div>
         </div>
 
@@ -102,8 +102,8 @@
                   type="button"
                   class="mini-logo-btn"
                   id="miniLogoBtn"
-                  title="Инструменты QVAC (файлы, OCR, голос)"
-                  aria-label="Инструменты QVAC"
+                  title="Инструменты Nora (файлы, OCR, голос)"
+                  aria-label="Инструменты Nora"
                   aria-haspopup="true"
                   aria-expanded="false"
                 >
@@ -117,7 +117,7 @@
                 <!-- Всплывающее меню действий по клику на мини-логотип -->
                 <div class="mini-logo-popover" id="miniLogoPopover">
                   <div class="popover-header">
-                    <span class="popover-badge">QVAC</span>
+                    <span class="popover-badge">Nora</span>
                     <span class="popover-subtitle">Инструменты модели</span>
                   </div>
 
@@ -180,7 +180,7 @@
           </div>
         </div>
         <div class="input-subtext">
-          Tether QVAC — локальная приватная модель на вашем устройстве
+          Nora — локальная приватная модель на вашем устройстве
         </div>
       </div>
 
@@ -192,7 +192,7 @@
   <div class="modal-backdrop" id="settingsModal">
     <div class="modal-box">
       <div class="modal-top">
-        <h3>Настройки QVAC</h3>
+        <h3>Настройки Nora</h3>
         <button class="close-btn" id="closeSettingsBtn">✕</button>
       </div>
       <div class="modal-content">
@@ -215,7 +215,7 @@
 
         <div style="margin-top:12px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
           <button type="button" class="test-conn-btn" id="checkConnBtn">🔍 Проверить статус LLM</button>
-          <span id="connStatusText" style="font-size:0.75rem; color:var(--text-muted); text-align:right;">Готово к проверке</span>
+          <span id="connStatusText" style="font-size:0.85rem; color:var(--text-muted); text-align:right;">Готово к проверке</span>
         </div>
 
         <label class="setting-label" style="margin-top:14px;">Системный промпт</label>
@@ -230,6 +230,6 @@
   <!-- Уведомления -->
   <div class="toast-box" id="toastContainer"></div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=3.0"></script>
 </body>
 </html>

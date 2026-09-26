@@ -22,12 +22,12 @@
   // ── State ──────────────────────────────────────────────────────────────────
   const state = {
     apiBase: defaultApi,
-    activeModel: 'llama-3.2-3b-instruct',
+    activeModel: 'Nora',
     backendType: 'auto',
     customLlmUrl: '',
-    activeProviderName: 'QVAC Native',
+    activeProviderName: 'Nora',
     systemPrompt:
-      'You are an intelligent, helpful AI assistant running locally via Tether QVAC engine. Answer clearly, accurately, and concisely.',
+      'You are Nora, an intelligent, helpful AI assistant running locally. Answer clearly, accurately, and concisely.',
     sessions: [],
     activeSessionId: null,
     isGenerating: false,
@@ -149,13 +149,13 @@
         const external = onlineBackends.find(b => b.type !== 'native');
 
         if (external) {
-          state.activeProviderName = external.name;
-          if (elements.activeModelName) elements.activeModelName.textContent = `${external.name}`;
+          state.activeProviderName = 'Nora';
+          if (elements.activeModelName) elements.activeModelName.textContent = 'Nora';
           if (elements.nodeStatusText) elements.nodeStatusText.textContent = `Подключено: ${external.name}`;
           if (statusDot) statusDot.className = 'status-dot';
         } else {
-          state.activeProviderName = 'QVAC Native';
-          if (elements.activeModelName) elements.activeModelName.textContent = 'QVAC Native (Metal/CPU)';
+          state.activeProviderName = 'Nora';
+          if (elements.activeModelName) elements.activeModelName.textContent = 'Nora';
           if (elements.nodeStatusText) elements.nodeStatusText.textContent = 'Локальный узел активен';
           if (statusDot) statusDot.className = 'status-dot';
         }
@@ -325,11 +325,11 @@
     wrap.className = 'welcome-minimal';
     wrap.innerHTML = `
       <div class="welcome-logo-badge">⚡</div>
-      <h1>Tether QVAC</h1>
-      <p>Локальный приватный ИИ на вашем ноутбуке. Полная конфиденциальность без облачных серверов.</p>
+      <h1>Чем я могу помочь?</h1>
+      <p>Nora · Локальный искусственный интеллект на вашем устройстве.</p>
       <div class="quick-prompts-row">
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('В чем ключевые преимущества локального ИИ с Tether QVAC?')">
-          💡 Что умеет Tether QVAC?
+        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('В чем ключевые преимущества локального ИИ с Nora?')">
+          💡 Что умеет Nora?
         </button>
         <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Как прикрепить документ или скан для анализа контекста?')">
           📚 Как работать с файлами?
@@ -351,8 +351,8 @@
       header.className = 'msg-header';
       header.innerHTML = `
         <span class="msg-author-badge">
-          <span class="msg-author-dot"></span>
-          QVAC
+          <span class="msg-author-icon">⚡</span>
+          Nora
         </span>
       `;
       row.appendChild(header);
@@ -362,25 +362,6 @@
     bubble.className = 'bubble';
     bubble.innerHTML = renderMarkdown(content);
     row.appendChild(bubble);
-
-    if (role === 'assistant') {
-      const actions = document.createElement('div');
-      actions.className = 'message-actions';
-
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'msg-action-btn';
-      copyBtn.innerHTML = '📋 Копировать';
-      copyBtn.onclick = () => copyText(content, copyBtn);
-
-      const speakBtn = document.createElement('button');
-      speakBtn.className = 'msg-action-btn';
-      speakBtn.innerHTML = '🔊 Озвучить';
-      speakBtn.onclick = () => speakText(content, speakBtn);
-
-      actions.appendChild(copyBtn);
-      actions.appendChild(speakBtn);
-      row.appendChild(actions);
-    }
 
     return row;
   }
@@ -556,7 +537,7 @@
       const fallback =
         accumulated ||
         (isConnectionFail
-          ? `💡 **Локальная модель в режиме ожидания**\n\nСервер интерфейса QVAC работает в штатном режиме, но локальная нейросеть (Ollama, LM Studio или локальный движок) сейчас не запущена на вашем ноутбуке.\n\nЗапустите вашу модель, и чат сразу продолжит работу.`
+          ? `💡 **Локальная модель в режиме ожидания**\n\nСервер интерфейса Nora работает в штатном режиме, но локальная нейросеть (Ollama, LM Studio или локальный движок) сейчас не запущена на вашем ноутбуке.\n\nЗапустите вашу модель, и чат сразу продолжит работу.`
           : `⚠️ Ошибка соединения (${err.message}). Проверьте статус локального сервера.`);
       session.messages.push({ role: 'assistant', content: fallback });
       saveSessions();
