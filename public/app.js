@@ -79,7 +79,34 @@
     checkConnBtn: document.getElementById('checkConnBtn'),
     connStatusText: document.getElementById('connStatusText'),
     systemPromptInput: document.getElementById('systemPromptInput'),
-    toastContainer: document.getElementById('toastContainer')
+    toastContainer: document.getElementById('toastContainer'),
+
+    // Nora Companion & Voice Assistant elements
+    noraCompanionDock: document.getElementById('noraCompanionDock'),
+    noraCompanionBtn: document.getElementById('noraCompanionBtn'),
+    noraSpeechCloud: document.getElementById('noraSpeechCloud'),
+    noraBtnAvatar: document.getElementById('noraBtnAvatar'),
+    noraBtnEyeL: document.getElementById('noraBtnEyeL'),
+    noraBtnEyeR: document.getElementById('noraBtnEyeR'),
+    noraBtnMouth: document.getElementById('noraBtnMouth'),
+
+    noraVoiceOverlay: document.getElementById('noraVoiceOverlay'),
+    noraVoiceCloseBtn: document.getElementById('noraVoiceCloseBtn'),
+    noraVoiceBackChatBtn: document.getElementById('noraVoiceBackChatBtn'),
+    noraVoiceMicBtn: document.getElementById('noraVoiceMicBtn'),
+    noraVoiceTtsBtn: document.getElementById('noraVoiceTtsBtn'),
+    noraVoiceTtsIcon: document.getElementById('noraVoiceTtsIcon'),
+    noraVoiceTtsLabel: document.getElementById('noraVoiceTtsLabel'),
+    noraVoiceStatusText: document.getElementById('noraVoiceStatusText'),
+    noraFullscreenAvatar: document.getElementById('noraFullscreenAvatar'),
+    noraFsEyeL: document.getElementById('noraFsEyeL'),
+    noraFsEyeR: document.getElementById('noraFsEyeR'),
+    noraFsMouth: document.getElementById('noraFsMouth'),
+    noraSoundWave: document.getElementById('noraSoundWave'),
+    noraVoiceUserBubble: document.getElementById('noraVoiceUserBubble'),
+    noraVoiceUserText: document.getElementById('noraVoiceUserText'),
+    noraVoiceBotBubble: document.getElementById('noraVoiceBotBubble'),
+    noraVoiceBotText: document.getElementById('noraVoiceBotText')
   };
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -91,6 +118,7 @@
     initSessions();
     setupEventListeners();
     initSpeechRecognition();
+    initNoraCompanion();
     checkHealth();
     setInterval(checkHealth, 12000);
   }
@@ -958,10 +986,525 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // NORA COMPANION & FULL-SCREEN VOICE ASSISTANT ENGINE
+  // ══════════════════════════════════════════════════════════════════════════
+
+  const voiceState = {
+    isOpen: false,
+    isListening: false,
+    isSpeaking: false,
+    isThinking: false,
+    ttsEnabled: true,
+    recognition: null,
+    currentUtterance: null
+  };
+
+  function initNoraCompanion() {
+    initVoiceRecognition();
+    setupEyeTracking();
+    setupBlinking();
+    setupVoiceOverlayEvents();
+  }
+
+  function setupEyeTracking() {
+    let ticking = false;
+
+    window.addEventListener('mousemove', e => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          updateGaze(e.clientX, e.clientY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    });
+
+    window.addEventListener('touchmove', e => {
+      if (e.touches && e.touches[0]) {
+        updateGaze(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+  }
+
+  function updateGaze(mouseX, mouseY) {
+    // 1. Companion button eyes & proximity reaction
+    if (elements.noraCompanionBtn) {
+      const rect = elements.noraCompanionBtn.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = mouseX - centerX;
+      const dy = mouseY - centerY;
+      const dist = Math.hypot(dx, dy);
+
+      // Gaze vector (max 7.5px in SVG coordinates)
+      const maxShift = 7.5;
+      const angle = Math.atan2(dy, dx);
+      const shiftDist = Math.min(maxShift, dist / 35);
+      const eyeX = Math.cos(angle) * shiftDist;
+      const eyeY = Math.sin(angle) * shiftDist;
+
+      if (elements.noraBtnEyeL) {
+        elements.noraBtnEyeL.setAttribute('transform', `translate(${98.7 + eyeX}, ${207 + eyeY})`);
+      }
+      if (elements.noraBtnEyeR) {
+        elements.noraBtnEyeR.setAttribute('transform', `translate(${231.5 + eyeX}, ${206.7 + eyeY})`);
+      }
+
+      // Proximity reaction: when cursor approaches within 260px, perk up & scale & tilt towards cursor
+      const proximityRadius = 260;
+      if (dist < proximityRadius) {
+        const factor = 1 - dist / proximityRadius;
+        const scale = 1.0 + factor * 0.16;
+        const tilt = Math.max(-8, Math.min(8, (dx / proximityRadius) * 12));
+        const lift = factor * 6;
+        elements.noraCompanionBtn.style.transform = `translateY(-${lift}px) scale(${scale}) rotate(${tilt}deg)`;
+      } else {
+        elements.noraCompanionBtn.style.transform = '';
+      }
+    }
+
+    // 2. Fullscreen avatar gaze tracking
+    if (voiceState.isOpen && elements.noraFullscreenAvatar) {
+      const fsRect = elements.noraFullscreenAvatar.getBoundingClientRect();
+      const fsCenterX = fsRect.left + fsRect.width / 2;
+      const fsCenterY = fsRect.top + fsRect.height / 2;
+      const fsdx = mouseX - fsCenterX;
+      const fsdy = mouseY - fsCenterY;
+      const fsDist = Math.hypot(fsdx, fsdy);
+
+      const fsMaxShift = 12.5;
+      const fsAngle = Math.atan2(fsdy, fsdx);
+      const fsShiftDist = Math.min(fsMaxShift, fsDist / 35);
+      const fsEyeX = Math.cos(fsAngle) * fsShiftDist;
+      const fsEyeY = Math.sin(fsAngle) * fsShiftDist;
+
+      if (elements.noraFsEyeL) {
+        elements.noraFsEyeL.setAttribute('transform', `translate(${98.7 + fsEyeX}, ${207 + fsEyeY})`);
+      }
+      if (elements.noraFsEyeR) {
+        elements.noraFsEyeR.setAttribute('transform', `translate(${231.5 + fsEyeX}, ${206.7 + fsEyeY})`);
+      }
+    }
+  }
+
+  function setupBlinking() {
+    function blink() {
+      if (elements.noraBtnAvatar) elements.noraBtnAvatar.classList.add('blinking');
+      if (elements.noraFullscreenAvatar) elements.noraFullscreenAvatar.classList.add('blinking');
+      setTimeout(() => {
+        if (elements.noraBtnAvatar) elements.noraBtnAvatar.classList.remove('blinking');
+        if (elements.noraFullscreenAvatar) elements.noraFullscreenAvatar.classList.remove('blinking');
+      }, 140);
+
+      const nextDelay = 3200 + Math.random() * 2800;
+      setTimeout(blink, nextDelay);
+    }
+    setTimeout(blink, 2500);
+  }
+
+  function initVoiceRecognition() {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      console.warn('[Nora Voice] SpeechRecognition not supported in this browser.');
+      return;
+    }
+
+    const rec = new SpeechRecognition();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.lang = navigator.language && navigator.language.startsWith('ru') ? 'ru-RU' : (navigator.language || 'ru-RU');
+
+    rec.onstart = () => {
+      voiceState.isListening = true;
+      updateVoiceUiState('listening');
+    };
+
+    rec.onresult = e => {
+      let interim = '';
+      let final = '';
+
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const transcript = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          final += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+
+      const spokenText = (final || interim).trim();
+      if (spokenText && elements.noraVoiceUserBubble && elements.noraVoiceUserText) {
+        elements.noraVoiceUserBubble.style.display = 'flex';
+        elements.noraVoiceUserText.textContent = spokenText;
+      }
+
+      if (final && final.trim()) {
+        rec.stop();
+        handleVoiceUserMessage(final.trim());
+      }
+    };
+
+    rec.onerror = e => {
+      console.warn('[Nora Voice] Recognition error:', e.error);
+      voiceState.isListening = false;
+      if (e.error === 'not-allowed') {
+        updateVoiceStatusText('Доступ к микрофону заблокирован в браузере');
+      } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
+        updateVoiceStatusText(`Ошибка микрофона: ${e.error}`);
+      }
+      updateVoiceUiState('idle');
+    };
+
+    rec.onend = () => {
+      voiceState.isListening = false;
+      if (!voiceState.isThinking && !voiceState.isSpeaking && voiceState.isOpen) {
+        updateVoiceUiState('idle');
+      }
+    };
+
+    voiceState.recognition = rec;
+  }
+
+  function updateVoiceUiState(mode) {
+    if (!elements.noraVoiceOverlay) return;
+
+    elements.noraVoiceOverlay.classList.remove('listening', 'thinking', 'speaking');
+    if (elements.noraFullscreenAvatar) {
+      elements.noraFullscreenAvatar.classList.remove('speaking');
+    }
+
+    if (mode === 'listening') {
+      elements.noraVoiceOverlay.classList.add('listening');
+      updateVoiceStatusText('Слушаю вас... Говорите');
+    } else if (mode === 'thinking') {
+      elements.noraVoiceOverlay.classList.add('thinking');
+      updateVoiceStatusText('Думаю над ответом...');
+    } else if (mode === 'speaking') {
+      elements.noraVoiceOverlay.classList.add('speaking');
+      if (elements.noraFullscreenAvatar) elements.noraFullscreenAvatar.classList.add('speaking');
+      updateVoiceStatusText('Nora отвечает...');
+    } else {
+      updateVoiceStatusText('Готова к диалогу — нажмите на микрофон');
+    }
+  }
+
+  function updateVoiceStatusText(txt) {
+    if (elements.noraVoiceStatusText) {
+      elements.noraVoiceStatusText.textContent = txt;
+    }
+  }
+
+  function openVoiceMode() {
+    if (!elements.noraVoiceOverlay) return;
+
+    voiceState.isOpen = true;
+    elements.noraVoiceOverlay.style.display = 'flex';
+
+    requestAnimationFrame(() => {
+      elements.noraVoiceOverlay.classList.add('active');
+    });
+
+    if (elements.noraVoiceBotText && (!elements.noraVoiceUserText || !elements.noraVoiceUserText.textContent || elements.noraVoiceUserText.textContent === '...')) {
+      elements.noraVoiceBotText.textContent = 'Привет! Я слушаю вас. Задайте любой вопрос или скажите что-нибудь.';
+    }
+
+    startVoiceListening();
+  }
+
+  function closeVoiceMode() {
+    if (!elements.noraVoiceOverlay) return;
+
+    voiceState.isOpen = false;
+    stopVoiceListening();
+
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+    voiceState.isSpeaking = false;
+    voiceState.isThinking = false;
+
+    elements.noraVoiceOverlay.classList.remove('active', 'listening', 'thinking', 'speaking');
+    if (elements.noraFullscreenAvatar) {
+      elements.noraFullscreenAvatar.classList.remove('speaking');
+    }
+
+    setTimeout(() => {
+      if (!voiceState.isOpen) {
+        elements.noraVoiceOverlay.style.display = 'none';
+      }
+    }, 360);
+
+    if (elements.chatInput) elements.chatInput.focus();
+  }
+
+  function startVoiceListening() {
+    if (!voiceState.recognition) {
+      showToast('Голосовой ввод не поддерживается браузером (рекомендуется Chrome, Edge или Safari)');
+      updateVoiceStatusText('Браузер не поддерживает Web Speech API');
+      return;
+    }
+
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      voiceState.isSpeaking = false;
+    }
+
+    try {
+      voiceState.recognition.start();
+    } catch (e) {
+      // If already started, ignore
+    }
+  }
+
+  function stopVoiceListening() {
+    if (voiceState.recognition && voiceState.isListening) {
+      try {
+        voiceState.recognition.stop();
+      } catch (e) {}
+    }
+    voiceState.isListening = false;
+    updateVoiceUiState('idle');
+  }
+
+  function toggleVoiceMic() {
+    if (voiceState.isListening) {
+      stopVoiceListening();
+    } else {
+      startVoiceListening();
+    }
+  }
+
+  async function handleVoiceUserMessage(userText) {
+    if (!userText || voiceState.isThinking) return;
+
+    voiceState.isThinking = true;
+    updateVoiceUiState('thinking');
+
+    if (elements.noraVoiceUserBubble && elements.noraVoiceUserText) {
+      elements.noraVoiceUserBubble.style.display = 'flex';
+      elements.noraVoiceUserText.textContent = userText;
+    }
+
+    if (elements.noraVoiceBotText) {
+      elements.noraVoiceBotText.innerHTML = '<span class="typing-cursor"></span>';
+    }
+
+    const session = getActiveSession();
+    session.messages.push({ role: 'user', content: userText });
+    if (session.messages.filter(m => m.role === 'user').length === 1) {
+      session.title = userText.slice(0, 26) + (userText.length > 26 ? '…' : '');
+    }
+    saveSessions();
+    renderChat();
+
+    let messagesForApi = [...session.messages];
+    if (session.attachedFiles && session.attachedFiles.length > 0) {
+      const fileContext = session.attachedFiles
+        .map(f => `[File "${f.name}"]:\n${f.content}`)
+        .join('\n\n---\n\n');
+      messagesForApi.splice(1, 0, {
+        role: 'system',
+        content: `[Attached Files Knowledge Base]:\n\n${fileContext}`
+      });
+    }
+
+    let accumulated = '';
+
+    try {
+      const requestBody = {
+        model: state.activeModel,
+        messages: messagesForApi,
+        stream: true
+      };
+
+      if (state.backendType === 'custom' && state.customLlmUrl) {
+        requestBody.baseUrl = state.customLlmUrl;
+      } else if (state.backendType === 'ollama') {
+        requestBody.baseUrl = 'http://127.0.0.1:11434/v1';
+      } else if (state.backendType === 'lmstudio') {
+        requestBody.baseUrl = 'http://127.0.0.1:1234/v1';
+      }
+
+      const res = await fetch(`${state.apiBase}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === 'data: [DONE]') continue;
+          if (trimmed.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(trimmed.slice(6));
+              const delta =
+                data.choices?.[0]?.delta?.content ??
+                data.choices?.[0]?.delta?.reasoning_content ??
+                '';
+              accumulated += delta;
+              if (elements.noraVoiceBotText) {
+                elements.noraVoiceBotText.textContent = accumulated;
+              }
+            } catch {}
+          }
+        }
+      }
+
+      session.messages.push({ role: 'assistant', content: accumulated });
+      saveSessions();
+      renderChat();
+
+    } catch (err) {
+      accumulated = accumulated || 'Локальная модель сейчас не запущена или находится в режиме ожидания. Запустите вашу модель на ноутбуке, чтобы продолжить беседу.';
+      if (elements.noraVoiceBotText) {
+        elements.noraVoiceBotText.textContent = accumulated;
+      }
+      session.messages.push({ role: 'assistant', content: accumulated });
+      saveSessions();
+      renderChat();
+    } finally {
+      voiceState.isThinking = false;
+
+      // Speak Nora's reply via TTS if enabled
+      if (voiceState.ttsEnabled && accumulated) {
+        speakNoraVoice(accumulated);
+      } else {
+        updateVoiceUiState('idle');
+        setTimeout(() => {
+          if (voiceState.isOpen && !voiceState.isSpeaking && !voiceState.isThinking) {
+            startVoiceListening();
+          }
+        }, 1200);
+      }
+    }
+  }
+
+  function speakNoraVoice(text) {
+    if (!('speechSynthesis' in window)) {
+      updateVoiceUiState('idle');
+      return;
+    }
+
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+
+    const clean = text
+      .replace(/```[\s\S]*?```/g, ' код опущен ')
+      .replace(/`[^`]+`/g, '')
+      .replace(/[#*_\[\]\(\)\<\>]/g, '')
+      .replace(/\n+/g, ' ')
+      .trim();
+
+    if (!clean) {
+      updateVoiceUiState('idle');
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(clean);
+    const voices = window.speechSynthesis.getVoices();
+    const ruVoice = voices.find(v => v.lang && v.lang.startsWith('ru')) || voices.find(v => v.lang && v.lang.startsWith('en')) || voices[0];
+    if (ruVoice) {
+      utterance.voice = ruVoice;
+      utterance.lang = ruVoice.lang;
+    } else {
+      utterance.lang = 'ru-RU';
+    }
+    utterance.rate = 1.05;
+    utterance.pitch = 1.05;
+
+    utterance.onstart = () => {
+      voiceState.isSpeaking = true;
+      updateVoiceUiState('speaking');
+    };
+
+    utterance.onend = () => {
+      voiceState.isSpeaking = false;
+      updateVoiceUiState('idle');
+      setTimeout(() => {
+        if (voiceState.isOpen && !voiceState.isSpeaking && !voiceState.isThinking) {
+          startVoiceListening();
+        }
+      }, 700);
+    };
+
+    utterance.onerror = () => {
+      voiceState.isSpeaking = false;
+      updateVoiceUiState('idle');
+    };
+
+    voiceState.currentUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function toggleVoiceTts() {
+    voiceState.ttsEnabled = !voiceState.ttsEnabled;
+    if (elements.noraVoiceTtsLabel) {
+      elements.noraVoiceTtsLabel.textContent = voiceState.ttsEnabled ? 'Озвучка: Вкл' : 'Озвучка: Выкл';
+    }
+    if (elements.noraVoiceTtsIcon) {
+      elements.noraVoiceTtsIcon.textContent = voiceState.ttsEnabled ? '🔊' : '🔇';
+    }
+    if (!voiceState.ttsEnabled && window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      voiceState.isSpeaking = false;
+      updateVoiceUiState('idle');
+    }
+    showToast(voiceState.ttsEnabled ? 'Озвучка Nora включена' : 'Озвучка Nora выключена');
+  }
+
+  function setupVoiceOverlayEvents() {
+    if (elements.noraCompanionBtn) {
+      elements.noraCompanionBtn.onclick = () => openVoiceMode();
+    }
+
+    if (elements.noraVoiceCloseBtn) {
+      elements.noraVoiceCloseBtn.onclick = () => closeVoiceMode();
+    }
+
+    if (elements.noraVoiceBackChatBtn) {
+      elements.noraVoiceBackChatBtn.onclick = () => closeVoiceMode();
+    }
+
+    if (elements.noraVoiceMicBtn) {
+      elements.noraVoiceMicBtn.onclick = () => toggleVoiceMic();
+    }
+
+    if (elements.noraVoiceTtsBtn) {
+      elements.noraVoiceTtsBtn.onclick = () => toggleVoiceTts();
+    }
+
+    // Keyboard shortcuts: Escape closes voice mode
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && voiceState.isOpen) {
+        closeVoiceMode();
+      }
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // PUBLIC API  (window.qvac)
   // ══════════════════════════════════════════════════════════════════════════
 
   window.qvac = {
+    openVoice: () => openVoiceMode(),
+    closeVoice: () => closeVoiceMode(),
     sendQuick: txt => sendMessage(txt),
     copyCode: (id, btn) => {
       const code = document.getElementById(id);

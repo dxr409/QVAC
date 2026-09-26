@@ -1212,4 +1212,542 @@ pre code {
   .mini-logo-popover {
     width: 290px;
   }
+
+  .nora-companion-dock {
+    right: 24px;
+    top: -50px;
+  }
+
+  .nora-companion-btn {
+    width: 54px;
+    height: 56px;
+  }
 }
+
+/* ==========================================================================
+   Nora Animated Companion Button (Docked above and right of Input)
+   ========================================================================== */
+.nora-companion-dock {
+  position: absolute;
+  right: 76px;
+  top: -58px;
+  z-index: 25;
+  pointer-events: auto;
+}
+
+.nora-companion-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  width: 66px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 10px rgba(0, 210, 170, 0.25));
+  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.24s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.nora-companion-btn:hover {
+  transform: translateY(-5px) scale(1.15);
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 18px rgba(0, 210, 170, 0.55));
+}
+
+.nora-companion-btn:active {
+  transform: scale(0.94);
+}
+
+.nora-avatar-face {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: noraGentlyFloat 4s ease-in-out infinite;
+}
+
+.nora-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  display: block;
+}
+
+/* Eye pupil smooth gaze transitions */
+.nora-eye-g {
+  transition: transform 0.06s ease-out;
+}
+
+.nora-eye-circle {
+  transform-origin: center;
+  transition: transform 0.08s ease;
+}
+
+/* Blinking state */
+.blinking .nora-eye-circle {
+  transform: scaleY(0.08);
+}
+
+/* Mouth speaking animation */
+.nora-mouth-g {
+  transform-origin: center;
+  transition: transform 0.15s ease;
+}
+
+@keyframes noraMouthSpeak {
+  0% { transform: scale(1, 1); }
+  50% { transform: scale(1.15, 1.45) translateY(1px); }
+  100% { transform: scale(0.9, 0.7); }
+}
+
+.speaking .nora-mouth-g {
+  animation: noraMouthSpeak 0.22s infinite alternate ease-in-out;
+}
+
+/* Hover speech bubble tooltip */
+.nora-speech-cloud {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: rgba(18, 22, 30, 0.95);
+  border: 1px solid rgba(0, 210, 170, 0.4);
+  border-radius: 12px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #f1f5f9;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  z-index: 30;
+}
+
+.nora-speech-cloud::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  right: 24px;
+  width: 10px;
+  height: 10px;
+  background: rgba(18, 22, 30, 0.95);
+  border-right: 1px solid rgba(0, 210, 170, 0.4);
+  border-bottom: 1px solid rgba(0, 210, 170, 0.4);
+  transform: rotate(45deg);
+}
+
+.nora-companion-btn:hover .nora-speech-cloud,
+.nora-speech-cloud.show-cloud {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes noraGentlyFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ==========================================================================
+   Full-Screen Voice Assistant Overlay
+   ========================================================================== */
+.nora-voice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: #080b12;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.95);
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  user-select: none;
+}
+
+.nora-voice-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.nora-voice-bg-gradient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 40%, rgba(15, 23, 42, 0.8) 0%, #07090e 100%);
+  z-index: 1;
+}
+
+.nora-voice-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  filter: blur(140px);
+}
+
+.nora-voice-glow.glow-teal {
+  width: 520px;
+  height: 520px;
+  background: rgba(0, 210, 170, 0.16);
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: glowPulseTeal 6s infinite alternate ease-in-out;
+}
+
+.nora-voice-glow.glow-indigo {
+  width: 600px;
+  height: 600px;
+  background: rgba(99, 102, 241, 0.12);
+  bottom: 5%;
+  left: 45%;
+  transform: translateX(-50%);
+  animation: glowPulseIndigo 8s infinite alternate ease-in-out;
+}
+
+@keyframes glowPulseTeal {
+  0% { transform: translateX(-50%) scale(0.9); opacity: 0.12; }
+  100% { transform: translateX(-50%) scale(1.15); opacity: 0.22; }
+}
+
+@keyframes glowPulseIndigo {
+  0% { transform: translateX(-50%) scale(1.1); opacity: 0.08; }
+  100% { transform: translateX(-50%) scale(0.85); opacity: 0.16; }
+}
+
+/* Topbar */
+.nora-voice-topbar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 36px;
+}
+
+.nora-live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nora-live-indicator .live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+.nora-live-indicator .live-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.nora-voice-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 100px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  backdrop-filter: blur(12px);
+}
+
+.nora-voice-status-pill .status-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.nora-voice-btn-icon {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nora-voice-btn-icon:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+/* Center Stage */
+.nora-voice-center-stage {
+  flex: 1;
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  gap: 22px;
+}
+
+/* Aura waves surrounding Nora */
+.nora-voice-aura-wrap {
+  position: absolute;
+  top: 36%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  height: 320px;
+  pointer-events: none;
+}
+
+.nora-aura-circle {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 210, 170, 0.25);
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.nora-voice-overlay.listening .nora-aura-circle.aura-1 {
+  animation: auraPulseWave 2.8s infinite ease-out;
+}
+.nora-voice-overlay.listening .nora-aura-circle.aura-2 {
+  animation: auraPulseWave 2.8s infinite ease-out 0.9s;
+}
+.nora-voice-overlay.listening .nora-aura-circle.aura-3 {
+  animation: auraPulseWave 2.8s infinite ease-out 1.8s;
+}
+
+@keyframes auraPulseWave {
+  0% { transform: scale(0.85); opacity: 0.55; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Nora Large Avatar */
+.nora-fullscreen-avatar {
+  width: 250px;
+  height: 256px;
+  position: relative;
+  z-index: 12;
+  filter: drop-shadow(0 16px 40px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 35px rgba(0, 210, 170, 0.35));
+  animation: noraLargeFloat 4s ease-in-out infinite;
+  transition: transform 0.3s ease;
+}
+
+@keyframes noraLargeFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+.nora-fullscreen-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  display: block;
+}
+
+/* Sound Wave Equalizer */
+.nora-sound-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  z-index: 12;
+}
+
+.wave-bar {
+  width: 4px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  transition: height 0.12s ease, background-color 0.2s ease;
+}
+
+.nora-voice-overlay.listening .wave-bar {
+  background: var(--accent);
+  animation: waveBarBounce 0.8s infinite ease-in-out alternate;
+}
+
+.nora-voice-overlay.speaking .wave-bar {
+  background: #38bdf8;
+  animation: waveBarBounce 0.6s infinite ease-in-out alternate;
+}
+
+.wave-bar.bar-1 { animation-delay: 0.05s; }
+.wave-bar.bar-2 { animation-delay: 0.15s; }
+.wave-bar.bar-3 { animation-delay: 0.25s; }
+.wave-bar.bar-4 { animation-delay: 0.35s; }
+.wave-bar.bar-5 { animation-delay: 0.45s; }
+.wave-bar.bar-6 { animation-delay: 0.55s; }
+.wave-bar.bar-7 { animation-delay: 0.48s; }
+.wave-bar.bar-8 { animation-delay: 0.38s; }
+.wave-bar.bar-9 { animation-delay: 0.28s; }
+.wave-bar.bar-10 { animation-delay: 0.18s; }
+.wave-bar.bar-11 { animation-delay: 0.10s; }
+.wave-bar.bar-12 { animation-delay: 0.02s; }
+
+@keyframes waveBarBounce {
+  0% { height: 8px; }
+  100% { height: 36px; }
+}
+
+/* Live Transcription Card */
+.nora-live-transcription-card {
+  max-width: 780px;
+  width: 90%;
+  min-height: 100px;
+  background: rgba(18, 24, 34, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 18px 24px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(24px);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nora-speech-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nora-speech-bubble .bubble-role {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nora-speech-bubble.user .bubble-role {
+  color: var(--accent);
+}
+
+.nora-speech-bubble.user .bubble-text {
+  font-size: 1.25rem;
+  color: #f1f5f9;
+  line-height: 1.5;
+}
+
+.nora-speech-bubble.assistant .bubble-role {
+  color: #38bdf8;
+}
+
+.nora-speech-bubble.assistant .bubble-text {
+  font-size: 1.35rem;
+  color: #f8fafc;
+  line-height: 1.55;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+/* Bottom Controls */
+.nora-voice-bottom-controls {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 24px 36px 40px 36px;
+}
+
+.nora-voice-tool-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  border-radius: 100px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.nora-voice-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+.nora-voice-main-mic {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, #059669 100%);
+  border: none;
+  color: #041211;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 8px 30px rgba(0, 210, 170, 0.5);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.nora-voice-main-mic:hover {
+  transform: scale(1.1);
+  box-shadow: 0 10px 36px rgba(0, 210, 170, 0.65);
+}
+
+.nora-voice-main-mic:active {
+  transform: scale(0.95);
+}
+
+/* Listening state on main mic */
+.nora-voice-overlay.listening .nora-voice-main-mic {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  box-shadow: 0 8px 32px rgba(239, 68, 68, 0.65);
+}
+
+.mic-halo-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nora-voice-overlay.listening .mic-halo-ring {
+  border-color: #ef4444;
+  animation: micRingPulse 1.8s infinite ease-out;
+}
+
+@keyframes micRingPulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
