@@ -384,47 +384,17 @@
 
     wrap.innerHTML = `
       <div class="gemini-hero-mascot-dock">
-        <div class="gemini-hero-shadow-puddle"></div>
-        <button type="button" class="gemini-hero-mascot-btn" id="geminiHeroMascotBtn" title="Нажмите для вызова голосового ассистента Nora" aria-label="Nora Ассистент">
-          <div class="gemini-mascot-avatar" id="geminiHeroAvatar">
-            <svg viewBox="0 0 328 335" class="gemini-hero-svg" id="geminiHeroSvg">
-              <defs>
-                <radialGradient id="noraHeroBlushGrad" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#ff6b8b" stop-opacity="0.8" />
-                  <stop offset="60%" stop-color="#ff7b98" stop-opacity="0.4" />
-                  <stop offset="100%" stop-color="#ff7b98" stop-opacity="0" />
-                </radialGradient>
-              </defs>
-              <!-- Основное тело персонажа -->
-              <image href="/nora-body.png" width="328" height="335" />
-              <!-- 3D блик по контуру головы -->
-              <path class="nora-rim-highlight" d="M 68 150 C 90 85 238 85 260 150" stroke="rgba(255,255,255,0.4)" stroke-width="4.5" fill="none" stroke-linecap="round" />
-              <!-- Румянец на щёчках -->
-              <g class="nora-cheeks-group">
-                <ellipse class="nora-blush-cheek left" cx="72" cy="240" rx="28" ry="16" fill="url(#noraHeroBlushGrad)" />
-                <ellipse class="nora-blush-cheek right" cx="256" cy="240" rx="28" ry="16" fill="url(#noraHeroBlushGrad)" />
-              </g>
-              <!-- Группа черт лица с 3D реакцией на взгляд -->
-              <g class="nora-face-features" id="noraHeroFaceFeatures">
-                <!-- Левый глаз -->
-                <g class="nora-eye-g left" id="noraHeroEyeL" transform="translate(98.7, 207)">
-                  <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
-                  <circle class="nora-pupil-gleam-1" cx="-7" cy="-8" r="8.2" fill="#ffffff" />
-                  <circle class="nora-pupil-gleam-2" cx="8" cy="8" r="3.8" fill="rgba(255,255,255,0.85)" />
-                </g>
-                <!-- Правый глаз -->
-                <g class="nora-eye-g right" id="noraHeroEyeR" transform="translate(231.5, 206.7)">
-                  <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
-                  <circle class="nora-pupil-gleam-1" cx="-7" cy="-8" r="8.2" fill="#ffffff" />
-                  <circle class="nora-pupil-gleam-2" cx="8" cy="8" r="3.8" fill="rgba(255,255,255,0.85)" />
-                </g>
-                <!-- Ротик -->
-                <g class="nora-mouth-g" id="noraHeroMouth" transform="translate(164.2, 255.3)">
-                  <path class="nora-mouth-path" d="M -22 -6 Q 0 -5 22 -6 Q 22 18 0 18 Q -22 18 -22 -6 Z" fill="#2e1e21" />
-                  <path class="nora-mouth-tongue" d="M -11 11 Q 0 4 11 11 Q 0 19 -11 11 Z" fill="#ff708a" />
-                </g>
-              </g>
-            </svg>
+        <div class="gemini-hero-shadow-puddle" id="geminiHeroPuddle"></div>
+        <div class="gemini-hero-energy-rings">
+          <div class="energy-ring ring-1"></div>
+          <div class="energy-ring ring-2"></div>
+        </div>
+        <button type="button" class="gemini-hero-mascot-btn" id="geminiHeroMascotBtn" title="Нажмите для вызова голосового ассистента Nora" aria-label="Nora 3D Ассистент">
+          <div class="gemini-mascot-avatar-3d" id="geminiHeroAvatar">
+            <div class="nora-3d-stage" id="geminiHero3dStage">
+              <div class="nora-3d-glow-halo hero"></div>
+              <img src="/nora-3d.png" class="nora-3d-img hero" id="geminiHero3dImg" alt="Nora 3D Assistant">
+            </div>
           </div>
         </button>
       </div>
@@ -436,29 +406,27 @@
     `;
 
     const heroBtn = wrap.querySelector('#geminiHeroMascotBtn');
-    const heroAvatar = wrap.querySelector('#geminiHeroAvatar');
+    const heroStage = wrap.querySelector('#geminiHero3dStage');
     if (heroBtn) {
       heroBtn.addEventListener('click', e => {
         e.stopPropagation();
-        handleHeroMascotClick(heroBtn, heroAvatar);
+        handleHeroMascotClick(heroBtn, heroStage);
       });
     }
 
     return wrap;
   }
 
-  function handleHeroMascotClick(heroBtn, heroAvatar) {
+  function handleHeroMascotClick(heroBtn, heroStage) {
     if (voiceState.isJumping || voiceState.isOpen) return;
     voiceState.isJumping = true;
 
     if (heroBtn) heroBtn.classList.add('jumping');
-    if (heroAvatar) heroAvatar.classList.add('happy-eyes');
 
     setTimeout(() => {
       openVoiceMode();
       setTimeout(() => {
         if (heroBtn) heroBtn.classList.remove('jumping');
-        if (heroAvatar) heroAvatar.classList.remove('happy-eyes');
         voiceState.isJumping = false;
       }, 450);
     }, 320);
@@ -473,7 +441,7 @@
       header.className = 'msg-header';
       header.innerHTML = `
         <span class="msg-author-badge">
-          <span class="msg-author-icon">⚡</span>
+          <img src="/nora-avatar-3d.png" class="msg-author-avatar-3d" alt="Nora">
           Nora
         </span>
       `;
@@ -1104,18 +1072,23 @@
   let saccadeOffsetX = 0, saccadeOffsetY = 0;
 
   // Hero Mascot (Gemini welcome screen) tracking variables
-  let currentHeroEyeX = 0, currentHeroEyeY = 0;
-  let targetHeroEyeX = 0, targetHeroEyeY = 0;
-  let currentHeroFaceX = 0, currentHeroFaceY = 0;
-  let targetHeroFaceX = 0, targetHeroFaceY = 0;
-  let currentHeroTilt = 0, targetHeroTilt = 0;
+  // 3D Physics-based gaze & levitation tracking variables
+  let currentHeroRotX = 0, targetHeroRotX = 0;
+  let currentHeroRotY = 0, targetHeroRotY = 0;
+  let currentHeroRotZ = 0, targetHeroRotZ = 0;
   let currentHeroScale = 1.0, targetHeroScale = 1.0;
+  let currentHeroFloatY = 0, targetHeroFloatY = 0;
+
+  let currentDockRotX = 0, targetDockRotX = 0;
+  let currentDockRotY = 0, targetDockRotY = 0;
+  let currentDockScale = 1.0, targetDockScale = 1.0;
+
+  let currentFsRotX = 0, targetFsRotX = 0;
+  let currentFsRotY = 0, targetFsRotY = 0;
 
   function initNoraCompanion() {
     initVoiceRecognition();
     setupEyeTracking();
-    setupBlinking();
-    setupMicroSaccades();
     setupVoiceOverlayEvents();
   }
 
@@ -1130,44 +1103,15 @@
       }
     }, { passive: true });
 
-    // 60fps continuous smooth physics easing loop
+    // 60fps continuous smooth 3D physics easing loop
     requestAnimationFrame(gazePhysicsLoop);
   }
 
   function calculateGazeTargets(mouseX, mouseY) {
-    if (elements.noraCompanionBtn) {
-      const rect = elements.noraCompanionBtn.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const dx = mouseX - centerX;
-      const dy = mouseY - centerY;
-      const dist = Math.hypot(dx, dy);
+    const ww = window.innerWidth || 1200;
+    const wh = window.innerHeight || 800;
 
-      // Expressive eye shift in SVG coordinate system (viewBox 328x335)
-      // 22px shift translates to ~6.5 screen pixels — clearly visible!
-      const maxShift = 22;
-      const angle = Math.atan2(dy, dx);
-      const shiftDist = Math.min(maxShift, (dist / Math.max(window.innerWidth, 800)) * 52);
-
-      targetEyeX = Math.cos(angle) * shiftDist;
-      targetEyeY = Math.sin(angle) * shiftDist * 0.85;
-
-      // 3D Parallax shift of facial features (cheeks, eyes, mouth)
-      targetFaceX = (targetEyeX / maxShift) * 7.5;
-      targetFaceY = (targetEyeY / maxShift) * 4.5;
-
-      // Proximity reaction within 340px: perks up, tilts head, scales up
-      const proximityRadius = 340;
-      if (dist < proximityRadius) {
-        const factor = 1 - dist / proximityRadius;
-        targetScale = 1.0 + factor * 0.16;
-        targetTilt = Math.max(-13, Math.min(13, (dx / proximityRadius) * 16));
-      } else {
-        targetScale = 1.0;
-        targetTilt = 0;
-      }
-    }
-
+    // 1. Hero Mascot (Gemini welcome screen)
     const heroBtn = document.getElementById('geminiHeroMascotBtn');
     if (heroBtn) {
       const rect = heroBtn.getBoundingClientRect();
@@ -1177,125 +1121,108 @@
       const dy = mouseY - centerY;
       const dist = Math.hypot(dx, dy);
 
-      const maxShift = 24;
-      const angle = Math.atan2(dy, dx);
-      const shiftDist = Math.min(maxShift, (dist / Math.max(window.innerWidth, 800)) * 54);
+      // True 3D perspective rotation towards cursor
+      targetHeroRotY = Math.max(-26, Math.min(26, (dx / (ww * 0.42)) * 26));
+      targetHeroRotX = Math.max(-20, Math.min(20, -(dy / (wh * 0.42)) * 20));
+      targetHeroRotZ = Math.max(-5, Math.min(5, (dx / ww) * 6));
 
-      targetHeroEyeX = Math.cos(angle) * shiftDist;
-      targetHeroEyeY = Math.sin(angle) * shiftDist * 0.85;
-
-      targetHeroFaceX = (targetHeroEyeX / maxShift) * 8.5;
-      targetHeroFaceY = (targetHeroEyeY / maxShift) * 5.0;
-
-      const proximityRadius = 380;
-      if (dist < proximityRadius) {
-        const factor = 1 - dist / proximityRadius;
-        targetHeroScale = 1.0 + factor * 0.16;
-        targetHeroTilt = Math.max(-12, Math.min(12, (dx / proximityRadius) * 14));
+      // Proximity perk-up when mouse is near
+      const prox = 420;
+      if (dist < prox) {
+        const factor = 1 - dist / prox;
+        targetHeroScale = 1.0 + factor * 0.12;
+        targetHeroFloatY = -factor * 10;
       } else {
         targetHeroScale = 1.0;
-        targetHeroTilt = 0;
+        targetHeroFloatY = 0;
       }
+    }
+
+    // 2. Docked companion button
+    if (elements.noraCompanionBtn) {
+      const rect = elements.noraCompanionBtn.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = mouseX - centerX;
+      const dy = mouseY - centerY;
+      const dist = Math.hypot(dx, dy);
+
+      targetDockRotY = Math.max(-24, Math.min(24, (dx / (ww * 0.38)) * 24));
+      targetDockRotX = Math.max(-18, Math.min(18, -(dy / (wh * 0.38)) * 18));
+
+      const prox = 320;
+      if (dist < prox) {
+        const factor = 1 - dist / prox;
+        targetDockScale = 1.0 + factor * 0.15;
+      } else {
+        targetDockScale = 1.0;
+      }
+    }
+
+    // 3. Fullscreen voice avatar
+    if (voiceState.isOpen) {
+      const dx = mouseX - (ww / 2);
+      const dy = mouseY - (wh * 0.4);
+      targetFsRotY = Math.max(-18, Math.min(18, (dx / (ww * 0.4)) * 18));
+      targetFsRotX = Math.max(-14, Math.min(14, -(dy / (wh * 0.4)) * 14));
     }
   }
 
   function gazePhysicsLoop() {
-    // Smooth lerp factor (organic ease-out)
-    const lerp = 0.16;
-    currentEyeX += (targetEyeX + saccadeOffsetX - currentEyeX) * lerp;
-    currentEyeY += (targetEyeY + saccadeOffsetY - currentEyeY) * lerp;
-    currentFaceX += (targetFaceX - currentFaceX) * lerp;
-    currentFaceY += (targetFaceY - currentFaceY) * lerp;
-    currentTilt += (targetTilt - currentTilt) * lerp;
-    currentScale += (targetScale - currentScale) * lerp;
+    const lerp = 0.12;
+    const now = performance.now();
+    const floatBob = Math.sin(now * 0.0024) * 6.5;
+    const floatTilt = Math.sin(now * 0.0016) * 1.8;
 
-    // 1. Apply to Nora companion button SVG elements
-    if (elements.noraBtnEyeL) {
-      elements.noraBtnEyeL.setAttribute('transform', `translate(${98.7 + currentEyeX}, ${207 + currentEyeY})`);
-    }
-    if (elements.noraBtnEyeR) {
-      elements.noraBtnEyeR.setAttribute('transform', `translate(${231.5 + currentEyeX}, ${206.7 + currentEyeY})`);
-    }
-    if (elements.noraBtnFaceFeatures) {
-      elements.noraBtnFaceFeatures.setAttribute('transform', `translate(${currentFaceX}, ${currentFaceY})`);
-    }
-    if (elements.noraCompanionBtn && !voiceState.isJumping) {
-      elements.noraCompanionBtn.style.transform = `scale(${currentScale}) rotate(${currentTilt}deg)`;
-    }
-
-    // 2. Apply to Fullscreen Avatar elements
-    if (voiceState.isOpen) {
-      if (elements.noraFsEyeL) {
-        elements.noraFsEyeL.setAttribute('transform', `translate(${98.7 + currentEyeX * 1.35}, ${207 + currentEyeY * 1.35})`);
-      }
-      if (elements.noraFsEyeR) {
-        elements.noraFsEyeR.setAttribute('transform', `translate(${231.5 + currentEyeX * 1.35}, ${206.7 + currentEyeY * 1.35})`);
-      }
-      if (elements.noraFsFaceFeatures) {
-        elements.noraFsFaceFeatures.setAttribute('transform', `translate(${currentFaceX * 1.25}, ${currentFaceY * 1.25})`);
-      }
-    }
-
-    // 3. Apply to Gemini Hero Mascot (Welcome screen)
+    // 1. Hero Mascot 3D tracking
     const heroBtn = document.getElementById('geminiHeroMascotBtn');
-    if (heroBtn) {
-      currentHeroEyeX += (targetHeroEyeX + saccadeOffsetX - currentHeroEyeX) * lerp;
-      currentHeroEyeY += (targetHeroEyeY + saccadeOffsetY - currentHeroEyeY) * lerp;
-      currentHeroFaceX += (targetHeroFaceX - currentHeroFaceX) * lerp;
-      currentHeroFaceY += (targetHeroFaceY - currentHeroFaceY) * lerp;
-      currentHeroTilt += (targetHeroTilt - currentHeroTilt) * lerp;
+    const heroStage = document.getElementById('geminiHero3dStage');
+    const heroPuddle = document.getElementById('geminiHeroPuddle');
+
+    if (heroBtn && heroStage) {
+      currentHeroRotX += (targetHeroRotX - currentHeroRotX) * lerp;
+      currentHeroRotY += (targetHeroRotY - currentHeroRotY) * lerp;
+      currentHeroRotZ += (targetHeroRotZ - currentHeroRotZ) * lerp;
       currentHeroScale += (targetHeroScale - currentHeroScale) * lerp;
+      currentHeroFloatY += (targetHeroFloatY - currentHeroFloatY) * lerp;
 
-      const heroEyeL = document.getElementById('noraHeroEyeL');
-      const heroEyeR = document.getElementById('noraHeroEyeR');
-      const heroFace = document.getElementById('noraHeroFaceFeatures');
-
-      if (heroEyeL) heroEyeL.setAttribute('transform', `translate(${98.7 + currentHeroEyeX}, ${207 + currentHeroEyeY})`);
-      if (heroEyeR) heroEyeR.setAttribute('transform', `translate(${231.5 + currentHeroEyeX}, ${206.7 + currentHeroEyeY})`);
-      if (heroFace) heroFace.setAttribute('transform', `translate(${currentHeroFaceX}, ${currentHeroFaceY})`);
       if (!heroBtn.classList.contains('jumping')) {
-        heroBtn.style.transform = `scale(${currentHeroScale}) rotate(${currentHeroTilt}deg)`;
+        heroStage.style.transform = `perspective(750px) translateY(${currentHeroFloatY + floatBob}px) rotateX(${currentHeroRotX}deg) rotateY(${currentHeroRotY}deg) rotateZ(${currentHeroRotZ + floatTilt}deg) scale3d(${currentHeroScale}, ${currentHeroScale}, 1)`;
+      }
+
+      if (heroPuddle) {
+        const pScale = (1.0 - (floatBob / 45)) * currentHeroScale;
+        heroPuddle.style.transform = `translateX(-50%) scale(${pScale})`;
+        heroPuddle.style.opacity = `${0.65 + (floatBob / 35)}`;
+      }
+    }
+
+    // 2. Docked companion button
+    const dockAvatar = elements.noraBtnAvatar;
+    if (dockAvatar && !voiceState.isJumping) {
+      currentDockRotX += (targetDockRotX - currentDockRotX) * lerp;
+      currentDockRotY += (targetDockRotY - currentDockRotY) * lerp;
+      currentDockScale += (targetDockScale - currentDockScale) * lerp;
+
+      dockAvatar.style.transform = `perspective(600px) translateY(${floatBob * 0.6}px) rotateX(${currentDockRotX}deg) rotateY(${currentDockRotY}deg) scale3d(${currentDockScale}, ${currentDockScale}, 1)`;
+    }
+
+    // 3. Fullscreen voice assistant avatar
+    if (voiceState.isOpen) {
+      const fsStage = document.getElementById('noraFs3dStage');
+      if (fsStage) {
+        currentFsRotX += (targetFsRotX - currentFsRotX) * lerp;
+        currentFsRotY += (targetFsRotY - currentFsRotY) * lerp;
+
+        const voicePulse = voiceState.isSpeaking ? Math.sin(now * 0.009) * 5 : (voiceState.isListening ? Math.sin(now * 0.005) * 3 : 0);
+        fsStage.style.transform = `perspective(850px) translateY(${floatBob * 1.2 + voicePulse}px) rotateX(${currentFsRotX}deg) rotateY(${currentFsRotY}deg) scale3d(${1.0 + (voicePulse ? 0.03 : 0)}, ${1.0 + (voicePulse ? 0.03 : 0)}, 1)`;
       }
     }
 
     requestAnimationFrame(gazePhysicsLoop);
   }
 
-  // Micro-saccades: subtle eye darting when thinking or observing to look truly alive
-  function setupMicroSaccades() {
-    function saccade() {
-      // Small 1.5 - 2.5px spontaneous eye glance
-      if (Math.random() > 0.4) {
-        saccadeOffsetX = (Math.random() - 0.5) * 4;
-        saccadeOffsetY = (Math.random() - 0.5) * 3;
-      } else {
-        saccadeOffsetX = 0;
-        saccadeOffsetY = 0;
-      }
-      const delay = 1800 + Math.random() * 2400;
-      setTimeout(saccade, delay);
-    }
-    setTimeout(saccade, 2000);
-  }
 
-  function setupBlinking() {
-    function blink() {
-      if (elements.noraBtnAvatar) elements.noraBtnAvatar.classList.add('blinking');
-      if (elements.noraFullscreenAvatar) elements.noraFullscreenAvatar.classList.add('blinking');
-      const heroAvatar = document.getElementById('geminiHeroAvatar');
-      if (heroAvatar) heroAvatar.classList.add('blinking');
-
-      setTimeout(() => {
-        if (elements.noraBtnAvatar) elements.noraBtnAvatar.classList.remove('blinking');
-        if (elements.noraFullscreenAvatar) elements.noraFullscreenAvatar.classList.remove('blinking');
-        if (heroAvatar) heroAvatar.classList.remove('blinking');
-      }, 140);
-
-      const nextDelay = 3000 + Math.random() * 2600;
-      setTimeout(blink, nextDelay);
-    }
-    setTimeout(blink, 2200);
-  }
 
   function initVoiceRecognition() {
     const SpeechRecognition =
