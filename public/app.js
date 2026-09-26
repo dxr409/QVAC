@@ -55,7 +55,18 @@
     fileHiddenInput: document.getElementById('fileHiddenInput'),
     micBtn: document.getElementById('micBtn'),
     recordingBar: document.getElementById('recordingBar'),
+    stopRecBtn: document.getElementById('stopRecBtn'),
     attachmentStrip: document.getElementById('attachmentStrip'),
+
+    // Mini Logo Popover elements
+    miniLogoBtn: document.getElementById('miniLogoBtn'),
+    miniLogoPopover: document.getElementById('miniLogoPopover'),
+    menuAttachDocBtn: document.getElementById('menuAttachDocBtn'),
+    menuAttachImgBtn: document.getElementById('menuAttachImgBtn'),
+    menuMicBtn: document.getElementById('menuMicBtn'),
+    menuMicIconBox: document.getElementById('menuMicIconBox'),
+    menuMicTitle: document.getElementById('menuMicTitle'),
+    menuMicDesc: document.getElementById('menuMicDesc'),
 
     settingsModal: document.getElementById('settingsModal'),
     openSettingsBtn: document.getElementById('openSettingsBtn'),
@@ -129,6 +140,7 @@
   }
 
   async function checkHealth() {
+    const statusDot = document.querySelector('.status-dot');
     try {
       const res = await fetch(`${state.apiBase}/v1/engine/status`, { signal: AbortSignal.timeout(3500) });
       if (res.ok) {
@@ -139,21 +151,27 @@
         if (external) {
           state.activeProviderName = external.name;
           if (elements.activeModelName) elements.activeModelName.textContent = `${external.name}`;
-          if (elements.nodeStatusText) elements.nodeStatusText.textContent = `Connected: ${external.name}`;
+          if (elements.nodeStatusText) elements.nodeStatusText.textContent = `Подключено: ${external.name}`;
+          if (statusDot) statusDot.className = 'status-dot';
         } else {
           state.activeProviderName = 'QVAC Native';
           if (elements.activeModelName) elements.activeModelName.textContent = 'QVAC Native (Metal/CPU)';
-          if (elements.nodeStatusText) elements.nodeStatusText.textContent = 'Local node active';
+          if (elements.nodeStatusText) elements.nodeStatusText.textContent = 'Локальный узел активен';
+          if (statusDot) statusDot.className = 'status-dot';
         }
       } else {
         const fallbackRes = await fetch(`${state.apiBase}/health`, { signal: AbortSignal.timeout(2000) });
         if (fallbackRes.ok && elements.nodeStatusText) {
-          elements.nodeStatusText.textContent = 'Local node active';
+          elements.nodeStatusText.textContent = 'Локальный сервер активен';
+          if (statusDot) statusDot.className = 'status-dot';
         }
       }
     } catch {
       if (elements.nodeStatusText) {
-        elements.nodeStatusText.textContent = 'Offline (check server)';
+        elements.nodeStatusText.textContent = 'Модель в режиме ожидания';
+      }
+      if (statusDot) {
+        statusDot.className = 'status-dot standby';
       }
     }
   }
@@ -308,16 +326,16 @@
     wrap.innerHTML = `
       <div class="welcome-logo-badge">⚡</div>
       <h1>Tether QVAC</h1>
-      <p>Local AI on your computer. No internet. No clouds.</p>
+      <p>Локальный приватный ИИ на вашем ноутбуке. Полная конфиденциальность без облачных серверов.</p>
       <div class="quick-prompts-row">
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('What are the advantages of local AI with Tether QVAC?')">
-          💡 What is Tether QVAC?
+        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('В чем ключевые преимущества локального ИИ с Tether QVAC?')">
+          💡 Что умеет Tether QVAC?
         </button>
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('How do I upload a document and ask questions about it?')">
-          📚 How to upload a document?
+        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Как прикрепить документ или скан для анализа контекста?')">
+          📚 Как работать с файлами?
         </button>
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Show me a Python code example for local LLM')">
-          🐍 Python code example
+        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Напиши пример кода на Python для работы с локальной LLM')">
+          🐍 Пример кода на Python
         </button>
       </div>
     `;
@@ -327,6 +345,18 @@
   function createMessageRow(role, content) {
     const row = document.createElement('div');
     row.className = `message-row ${role}`;
+
+    if (role === 'assistant') {
+      const header = document.createElement('div');
+      header.className = 'msg-header';
+      header.innerHTML = `
+        <span class="msg-author-badge">
+          <span class="msg-author-dot"></span>
+          QVAC
+        </span>
+      `;
+      row.appendChild(header);
+    }
 
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
@@ -339,12 +369,12 @@
 
       const copyBtn = document.createElement('button');
       copyBtn.className = 'msg-action-btn';
-      copyBtn.innerHTML = '📋 Copy';
+      copyBtn.innerHTML = '📋 Копировать';
       copyBtn.onclick = () => copyText(content, copyBtn);
 
       const speakBtn = document.createElement('button');
       speakBtn.className = 'msg-action-btn';
-      speakBtn.innerHTML = '🔊 Speak';
+      speakBtn.innerHTML = '🔊 Озвучить';
       speakBtn.onclick = () => speakText(content, speakBtn);
 
       actions.appendChild(copyBtn);
@@ -518,9 +548,16 @@
       saveSessions();
       renderChat();
     } catch (err) {
+      const isConnectionFail =
+        err.name === 'TypeError' ||
+        err.message.includes('fetch') ||
+        err.message.includes('Failed to fetch') ||
+        err.message.includes('abort');
       const fallback =
         accumulated ||
-        `⚠️ Connection error (${err.message}). Make sure the server is running on port 8085.`;
+        (isConnectionFail
+          ? `💡 **Локальная модель в режиме ожидания**\n\nСервер интерфейса QVAC работает в штатном режиме, но локальная нейросеть (Ollama, LM Studio или локальный движок) сейчас не запущена на вашем ноутбуке.\n\nЗапустите вашу модель, и чат сразу продолжит работу.`
+          : `⚠️ Ошибка соединения (${err.message}). Проверьте статус локального сервера.`);
       session.messages.push({ role: 'assistant', content: fallback });
       saveSessions();
       renderChat();
@@ -642,10 +679,12 @@
     recognition.onstart = () => {
       state.isListening = true;
       if (elements.micBtn) elements.micBtn.classList.add('recording');
+      if (elements.menuMicIconBox) elements.menuMicIconBox.classList.add('recording');
+      if (elements.menuMicTitle) elements.menuMicTitle.textContent = 'Идет запись...';
       if (elements.recordingBar) {
         elements.recordingBar.style.display = 'flex';
-        const label = elements.recordingBar.querySelector('span');
-        if (label) label.textContent = '🎙️ Listening…';
+        const label = elements.recordingBar.querySelector('.recording-label') || elements.recordingBar.querySelector('span');
+        if (label) label.textContent = '🎙️ Идет запись голоса... Говорите в микрофон';
       }
     };
 
@@ -667,8 +706,8 @@
       }
 
       if (elements.recordingBar) {
-        const label = elements.recordingBar.querySelector('span');
-        if (label) label.textContent = `🎙️ ${interimText || finalText || 'Listening…'}`;
+        const label = elements.recordingBar.querySelector('.recording-label') || elements.recordingBar.querySelector('span');
+        if (label) label.textContent = `🎙️ ${interimText || finalText || 'Слушаю…'}`;
       }
     };
 
@@ -710,6 +749,8 @@
   function stopListening() {
     state.isListening = false;
     if (elements.micBtn) elements.micBtn.classList.remove('recording');
+    if (elements.menuMicIconBox) elements.menuMicIconBox.classList.remove('recording');
+    if (elements.menuMicTitle) elements.menuMicTitle.textContent = 'Голосовой ввод';
     if (elements.recordingBar) elements.recordingBar.style.display = 'none';
   }
 
@@ -824,7 +865,7 @@
       elements.chatInput.oninput = () => {
         elements.chatInput.style.height = 'auto';
         elements.chatInput.style.height =
-          Math.min(elements.chatInput.scrollHeight, 140) + 'px';
+          Math.min(elements.chatInput.scrollHeight, 160) + 'px';
       };
       elements.chatInput.onkeydown = e => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -834,9 +875,84 @@
       };
     }
 
+    // ── Mini Logo Action Menu & Popover ──
+    function toggleMiniLogoPopover(open) {
+      if (!elements.miniLogoPopover) return;
+      const shouldOpen =
+        typeof open === 'boolean'
+          ? open
+          : !elements.miniLogoPopover.classList.contains('open');
+
+      if (shouldOpen) {
+        elements.miniLogoPopover.classList.add('open');
+        if (elements.miniLogoBtn) elements.miniLogoBtn.setAttribute('aria-expanded', 'true');
+      } else {
+        elements.miniLogoPopover.classList.remove('open');
+        if (elements.miniLogoBtn) elements.miniLogoBtn.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    if (elements.miniLogoBtn) {
+      elements.miniLogoBtn.onclick = e => {
+        e.stopPropagation();
+        toggleMiniLogoPopover();
+      };
+    }
+
+    // Закрытие меню при клике вне его области
+    document.addEventListener('click', e => {
+      if (elements.miniLogoPopover && elements.miniLogoPopover.classList.contains('open')) {
+        if (!elements.miniLogoPopover.contains(e.target) && (!elements.miniLogoBtn || !elements.miniLogoBtn.contains(e.target))) {
+          toggleMiniLogoPopover(false);
+        }
+      }
+    });
+
+    // Закрытие по клавише Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && elements.miniLogoPopover && elements.miniLogoPopover.classList.contains('open')) {
+        toggleMiniLogoPopover(false);
+      }
+    });
+
+    // Пункт меню: Прикрепить документ
+    if (elements.menuAttachDocBtn && elements.fileHiddenInput) {
+      elements.menuAttachDocBtn.onclick = () => {
+        toggleMiniLogoPopover(false);
+        elements.fileHiddenInput.accept = '.pdf,.txt,.md,.json,.csv,.doc,.docx';
+        elements.fileHiddenInput.click();
+      };
+    }
+
+    // Пункт меню: Распознать фото / скан (OCR)
+    if (elements.menuAttachImgBtn && elements.fileHiddenInput) {
+      elements.menuAttachImgBtn.onclick = () => {
+        toggleMiniLogoPopover(false);
+        elements.fileHiddenInput.accept = 'image/*,.pdf';
+        elements.fileHiddenInput.click();
+      };
+    }
+
+    // Пункт меню: Голосовой ввод
+    if (elements.menuMicBtn) {
+      elements.menuMicBtn.onclick = () => {
+        toggleMiniLogoPopover(false);
+        toggleRecording();
+      };
+    }
+
+    // Кнопка остановки записи на полоске
+    if (elements.stopRecBtn) {
+      elements.stopRecBtn.onclick = () => stopListening();
+    }
+
+    // Обработка выбора файла
+    if (elements.fileHiddenInput) {
+      elements.fileHiddenInput.onchange = e => handleFileUpload(e.target.files[0]);
+    }
+
     if (elements.attachFileBtn && elements.fileHiddenInput) {
       elements.attachFileBtn.onclick = () => elements.fileHiddenInput.click();
-      elements.fileHiddenInput.onchange = e => handleFileUpload(e.target.files[0]);
     }
 
     if (elements.micBtn) elements.micBtn.onclick = toggleRecording;
