@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Nora — Local AI</title>
   <link rel="icon" type="image/svg+xml" href="/qvac-logo.svg">
-  <link rel="stylesheet" href="/style.css?v=4.0">
+  <link rel="stylesheet" href="/style.css?v=5.0">
 </head>
 <body>
 
@@ -73,25 +73,74 @@
       <div class="input-wrapper">
         <!-- Ассистент Nora (плавающая интерактивная кнопка чуть выше и правее поля ввода) -->
         <div class="nora-companion-dock" id="noraCompanionDock">
+          <!-- Тень на плоскости под персонажем (пульсирует при дыхании и сжимается при прыжке) -->
+          <div class="nora-shadow-puddle" id="noraShadowPuddle"></div>
+
+          <!-- Искры и звездочки при клике/наведении -->
+          <div class="nora-sparkles-container" id="noraSparkles">
+            <span class="nora-sparkle sp-1">✦</span>
+            <span class="nora-sparkle sp-2">✧</span>
+            <span class="nora-sparkle sp-3">★</span>
+            <span class="nora-sparkle sp-4">✦</span>
+          </div>
+
+          <!-- Ударная волна при клике -->
+          <div class="nora-click-shockwave" id="noraClickShockwave"></div>
+
           <button type="button" class="nora-companion-btn" id="noraCompanionBtn" aria-label="Голосовой ассистент Nora" title="Nora — нажми, чтобы перейти в голосовой режим">
             <div class="nora-speech-cloud" id="noraSpeechCloud">
               <span>Привет! Поговорим? 🎙️</span>
             </div>
+
             <div class="nora-avatar-face" id="noraBtnAvatar">
               <svg viewBox="0 0 328 335" class="nora-svg" id="noraSvgBtn">
+                <defs>
+                  <radialGradient id="noraBlushGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#ff6b8b" stop-opacity="0.8" />
+                    <stop offset="60%" stop-color="#ff7b98" stop-opacity="0.4" />
+                    <stop offset="100%" stop-color="#ff7b98" stop-opacity="0" />
+                  </radialGradient>
+                </defs>
+
+                <!-- Основное тело персонажа -->
                 <image href="/nora-body.png" width="328" height="335" />
-                <g class="nora-eyes-wrap" id="noraBtnEyesWrap">
-                  <g class="nora-eye-g left" id="noraBtnEyeL" transform="translate(98.7, 207)">
-                    <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
-                    <circle class="nora-pupil-highlight" cx="-6" cy="-8" r="5" fill="rgba(255,255,255,0.3)" />
-                  </g>
-                  <g class="nora-eye-g right" id="noraBtnEyeR" transform="translate(231.5, 206.7)">
-                    <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
-                    <circle class="nora-pupil-highlight" cx="-6" cy="-8" r="5" fill="rgba(255,255,255,0.3)" />
-                  </g>
+
+                <!-- Мягкий 3D блик по верхнему контуру головы -->
+                <path class="nora-rim-highlight" d="M 68 150 C 90 85 238 85 260 150" stroke="rgba(255,255,255,0.4)" stroke-width="4.5" fill="none" stroke-linecap="round" />
+
+                <!-- Милый румянец на щёчках -->
+                <g class="nora-cheeks-group">
+                  <ellipse class="nora-blush-cheek left" cx="72" cy="240" rx="28" ry="16" fill="url(#noraBlushGrad)" />
+                  <ellipse class="nora-blush-cheek right" cx="256" cy="240" rx="28" ry="16" fill="url(#noraBlushGrad)" />
                 </g>
-                <g class="nora-mouth-g" id="noraBtnMouth" transform="translate(164.2, 255.3)">
-                  <path class="nora-mouth-path" id="noraBtnMouthPath" d="M -22 -6 Q 0 -5 22 -6 Q 22 18 0 18 Q -22 18 -22 -6 Z" fill="#2e1e21" />
+
+                <!-- Интерактивная группа черт лица (3D параллакс) -->
+                <g class="nora-face-features" id="noraBtnFaceFeatures">
+                  <!-- Левый глаз -->
+                  <g class="nora-eye-g left" id="noraBtnEyeL" transform="translate(98.7, 207)">
+                    <g class="nora-eye-normal" id="noraBtnEyeNormL">
+                      <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
+                      <circle class="nora-pupil-gleam-1" cx="-7" cy="-8" r="8.2" fill="#ffffff" />
+                      <circle class="nora-pupil-gleam-2" cx="8" cy="8" r="3.8" fill="rgba(255,255,255,0.85)" />
+                    </g>
+                    <path class="nora-eye-happy" id="noraBtnEyeHappyL" d="M -18 6 Q 0 -12 18 6" stroke="#2e1e21" stroke-width="7" stroke-linecap="round" fill="none" style="display:none;" />
+                  </g>
+
+                  <!-- Правый глаз -->
+                  <g class="nora-eye-g right" id="noraBtnEyeR" transform="translate(231.5, 206.7)">
+                    <g class="nora-eye-normal" id="noraBtnEyeNormR">
+                      <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
+                      <circle class="nora-pupil-gleam-1" cx="-7" cy="-8" r="8.2" fill="#ffffff" />
+                      <circle class="nora-pupil-gleam-2" cx="8" cy="8" r="3.8" fill="rgba(255,255,255,0.85)" />
+                    </g>
+                    <path class="nora-eye-happy" id="noraBtnEyeHappyR" d="M -18 6 Q 0 -12 18 6" stroke="#2e1e21" stroke-width="7" stroke-linecap="round" fill="none" style="display:none;" />
+                  </g>
+
+                  <!-- Ротик с язычком и открытым состоянием -->
+                  <g class="nora-mouth-g" id="noraBtnMouth" transform="translate(164.2, 255.3)">
+                    <path class="nora-mouth-path" id="noraBtnMouthPath" d="M -22 -6 Q 0 -5 22 -6 Q 22 18 0 18 Q -22 18 -22 -6 Z" fill="#2e1e21" />
+                    <path class="nora-mouth-tongue" d="M -11 11 Q 0 4 11 11 Q 0 19 -11 11 Z" fill="#ff708a" />
+                  </g>
                 </g>
               </svg>
             </div>
@@ -294,19 +343,47 @@
       <!-- Большой анимированный персонаж Nora -->
       <div class="nora-fullscreen-avatar" id="noraFullscreenAvatar">
         <svg viewBox="0 0 328 335" class="nora-fullscreen-svg" id="noraSvgFullscreen">
+          <defs>
+            <radialGradient id="noraFsBlushGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ff6b8b" stop-opacity="0.8" />
+              <stop offset="60%" stop-color="#ff7b98" stop-opacity="0.4" />
+              <stop offset="100%" stop-color="#ff7b98" stop-opacity="0" />
+            </radialGradient>
+          </defs>
+
+          <!-- Основное тело персонажа -->
           <image href="/nora-body.png" width="328" height="335" />
-          <g class="nora-eyes-wrap" id="noraFsEyesWrap">
+
+          <!-- 3D блик по контуру головы -->
+          <path class="nora-rim-highlight" d="M 68 150 C 90 85 238 85 260 150" stroke="rgba(255,255,255,0.4)" stroke-width="4.5" fill="none" stroke-linecap="round" />
+
+          <!-- Румянец на щёчках -->
+          <g class="nora-cheeks-group">
+            <ellipse class="nora-blush-cheek left" cx="72" cy="240" rx="28" ry="16" fill="url(#noraFsBlushGrad)" />
+            <ellipse class="nora-blush-cheek right" cx="256" cy="240" rx="28" ry="16" fill="url(#noraFsBlushGrad)" />
+          </g>
+
+          <!-- Группа черт лица -->
+          <g class="nora-face-features" id="noraFsFaceFeatures">
+            <!-- Левый глаз -->
             <g class="nora-eye-g left" id="noraFsEyeL" transform="translate(98.7, 207)">
               <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
-              <circle class="nora-pupil-highlight" cx="-6" cy="-8" r="5" fill="rgba(255,255,255,0.3)" />
+              <circle class="nora-pupil-gleam-1" cx="-7" cy="-8" r="8.2" fill="#ffffff" />
+              <circle class="nora-pupil-gleam-2" cx="8" cy="8" r="3.8" fill="rgba(255,255,255,0.85)" />
             </g>
+
+            <!-- Правый глаз -->
             <g class="nora-eye-g right" id="noraFsEyeR" transform="translate(231.5, 206.7)">
               <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
-              <circle class="nora-pupil-highlight" cx="-6" cy="-8" r="5" fill="rgba(255,255,255,0.3)" />
+              <circle class="nora-pupil-gleam-1" cx="-7" cy="-8" r="8.2" fill="#ffffff" />
+              <circle class="nora-pupil-gleam-2" cx="8" cy="8" r="3.8" fill="rgba(255,255,255,0.85)" />
             </g>
-          </g>
-          <g class="nora-mouth-g" id="noraFsMouth" transform="translate(164.2, 255.3)">
-            <path class="nora-mouth-path" id="noraFsMouthPath" d="M -22 -6 Q 0 -5 22 -6 Q 22 18 0 18 Q -22 18 -22 -6 Z" fill="#2e1e21" />
+
+            <!-- Ротик -->
+            <g class="nora-mouth-g" id="noraFsMouth" transform="translate(164.2, 255.3)">
+              <path class="nora-mouth-path" id="noraFsMouthPath" d="M -22 -6 Q 0 -5 22 -6 Q 22 18 0 18 Q -22 18 -22 -6 Z" fill="#2e1e21" />
+              <path class="nora-mouth-tongue" d="M -11 11 Q 0 4 11 11 Q 0 19 -11 11 Z" fill="#ff708a" />
+            </g>
           </g>
         </svg>
       </div>
@@ -369,6 +446,6 @@
   <!-- Уведомления -->
   <div class="toast-box" id="toastContainer"></div>
 
-  <script src="/app.js?v=4.0"></script>
+  <script src="/app.js?v=5.0"></script>
 </body>
 </html>

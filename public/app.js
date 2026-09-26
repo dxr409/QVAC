@@ -85,7 +85,11 @@
     noraCompanionDock: document.getElementById('noraCompanionDock'),
     noraCompanionBtn: document.getElementById('noraCompanionBtn'),
     noraSpeechCloud: document.getElementById('noraSpeechCloud'),
+    noraShadowPuddle: document.getElementById('noraShadowPuddle'),
+    noraSparkles: document.getElementById('noraSparkles'),
+    noraClickShockwave: document.getElementById('noraClickShockwave'),
     noraBtnAvatar: document.getElementById('noraBtnAvatar'),
+    noraBtnFaceFeatures: document.getElementById('noraBtnFaceFeatures'),
     noraBtnEyeL: document.getElementById('noraBtnEyeL'),
     noraBtnEyeR: document.getElementById('noraBtnEyeR'),
     noraBtnMouth: document.getElementById('noraBtnMouth'),
@@ -99,6 +103,7 @@
     noraVoiceTtsLabel: document.getElementById('noraVoiceTtsLabel'),
     noraVoiceStatusText: document.getElementById('noraVoiceStatusText'),
     noraFullscreenAvatar: document.getElementById('noraFullscreenAvatar'),
+    noraFsFaceFeatures: document.getElementById('noraFsFaceFeatures'),
     noraFsEyeL: document.getElementById('noraFsEyeL'),
     noraFsEyeR: document.getElementById('noraFsEyeR'),
     noraFsMouth: document.getElementById('noraFsMouth'),
@@ -994,40 +999,45 @@
     isListening: false,
     isSpeaking: false,
     isThinking: false,
+    isJumping: false,
     ttsEnabled: true,
     recognition: null,
     currentUtterance: null
   };
 
+  // Physics-based gaze & 3D parallax tracking variables
+  let currentEyeX = 0, currentEyeY = 0;
+  let targetEyeX = 0, targetEyeY = 0;
+  let currentFaceX = 0, currentFaceY = 0;
+  let targetFaceX = 0, targetFaceY = 0;
+  let currentTilt = 0, targetTilt = 0;
+  let currentScale = 1.0, targetScale = 1.0;
+  let saccadeOffsetX = 0, saccadeOffsetY = 0;
+
   function initNoraCompanion() {
     initVoiceRecognition();
     setupEyeTracking();
     setupBlinking();
+    setupMicroSaccades();
     setupVoiceOverlayEvents();
   }
 
   function setupEyeTracking() {
-    let ticking = false;
-
     window.addEventListener('mousemove', e => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          updateGaze(e.clientX, e.clientY);
-          ticking = false;
-        });
-        ticking = true;
-      }
+      calculateGazeTargets(e.clientX, e.clientY);
     });
 
     window.addEventListener('touchmove', e => {
       if (e.touches && e.touches[0]) {
-        updateGaze(e.touches[0].clientX, e.touches[0].clientY);
+        calculateGazeTargets(e.touches[0].clientX, e.touches[0].clientY);
       }
     }, { passive: true });
+
+    // 60fps continuous smooth physics easing loop
+    requestAnimationFrame(gazePhysicsLoop);
   }
 
-  function updateGaze(mouseX, mouseY) {
-    // 1. Companion button eyes & proximity reaction
+  function calculateGazeTargets(mouseX, mouseY) {
     if (elements.noraCompanionBtn) {
       const rect = elements.noraCompanionBtn.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
@@ -1036,55 +1046,87 @@
       const dy = mouseY - centerY;
       const dist = Math.hypot(dx, dy);
 
-      // Gaze vector (max 7.5px in SVG coordinates)
-      const maxShift = 7.5;
+      // Expressive eye shift in SVG coordinate system (viewBox 328x335)
+      // 22px shift translates to ~6.5 screen pixels — clearly visible!
+      const maxShift = 22;
       const angle = Math.atan2(dy, dx);
-      const shiftDist = Math.min(maxShift, dist / 35);
-      const eyeX = Math.cos(angle) * shiftDist;
-      const eyeY = Math.sin(angle) * shiftDist;
+      const shiftDist = Math.min(maxShift, (dist / Math.max(window.innerWidth, 800)) * 52);
 
-      if (elements.noraBtnEyeL) {
-        elements.noraBtnEyeL.setAttribute('transform', `translate(${98.7 + eyeX}, ${207 + eyeY})`);
-      }
-      if (elements.noraBtnEyeR) {
-        elements.noraBtnEyeR.setAttribute('transform', `translate(${231.5 + eyeX}, ${206.7 + eyeY})`);
-      }
+      targetEyeX = Math.cos(angle) * shiftDist;
+      targetEyeY = Math.sin(angle) * shiftDist * 0.85;
 
-      // Proximity reaction: when cursor approaches within 260px, perk up & scale & tilt towards cursor
-      const proximityRadius = 260;
+      // 3D Parallax shift of facial features (cheeks, eyes, mouth)
+      targetFaceX = (targetEyeX / maxShift) * 7.5;
+      targetFaceY = (targetEyeY / maxShift) * 4.5;
+
+      // Proximity reaction within 340px: perks up, tilts head, scales up
+      const proximityRadius = 340;
       if (dist < proximityRadius) {
         const factor = 1 - dist / proximityRadius;
-        const scale = 1.0 + factor * 0.16;
-        const tilt = Math.max(-8, Math.min(8, (dx / proximityRadius) * 12));
-        const lift = factor * 6;
-        elements.noraCompanionBtn.style.transform = `translateY(-${lift}px) scale(${scale}) rotate(${tilt}deg)`;
+        targetScale = 1.0 + factor * 0.16;
+        targetTilt = Math.max(-13, Math.min(13, (dx / proximityRadius) * 16));
       } else {
-        elements.noraCompanionBtn.style.transform = '';
+        targetScale = 1.0;
+        targetTilt = 0;
       }
     }
+  }
 
-    // 2. Fullscreen avatar gaze tracking
-    if (voiceState.isOpen && elements.noraFullscreenAvatar) {
-      const fsRect = elements.noraFullscreenAvatar.getBoundingClientRect();
-      const fsCenterX = fsRect.left + fsRect.width / 2;
-      const fsCenterY = fsRect.top + fsRect.height / 2;
-      const fsdx = mouseX - fsCenterX;
-      const fsdy = mouseY - fsCenterY;
-      const fsDist = Math.hypot(fsdx, fsdy);
+  function gazePhysicsLoop() {
+    // Smooth lerp factor (organic ease-out)
+    const lerp = 0.16;
+    currentEyeX += (targetEyeX + saccadeOffsetX - currentEyeX) * lerp;
+    currentEyeY += (targetEyeY + saccadeOffsetY - currentEyeY) * lerp;
+    currentFaceX += (targetFaceX - currentFaceX) * lerp;
+    currentFaceY += (targetFaceY - currentFaceY) * lerp;
+    currentTilt += (targetTilt - currentTilt) * lerp;
+    currentScale += (targetScale - currentScale) * lerp;
 
-      const fsMaxShift = 12.5;
-      const fsAngle = Math.atan2(fsdy, fsdx);
-      const fsShiftDist = Math.min(fsMaxShift, fsDist / 35);
-      const fsEyeX = Math.cos(fsAngle) * fsShiftDist;
-      const fsEyeY = Math.sin(fsAngle) * fsShiftDist;
+    // 1. Apply to Nora companion button SVG elements
+    if (elements.noraBtnEyeL) {
+      elements.noraBtnEyeL.setAttribute('transform', `translate(${98.7 + currentEyeX}, ${207 + currentEyeY})`);
+    }
+    if (elements.noraBtnEyeR) {
+      elements.noraBtnEyeR.setAttribute('transform', `translate(${231.5 + currentEyeX}, ${206.7 + currentEyeY})`);
+    }
+    if (elements.noraBtnFaceFeatures) {
+      elements.noraBtnFaceFeatures.setAttribute('transform', `translate(${currentFaceX}, ${currentFaceY})`);
+    }
+    if (elements.noraCompanionBtn && !voiceState.isJumping) {
+      elements.noraCompanionBtn.style.transform = `scale(${currentScale}) rotate(${currentTilt}deg)`;
+    }
 
+    // 2. Apply to Fullscreen Avatar elements
+    if (voiceState.isOpen) {
       if (elements.noraFsEyeL) {
-        elements.noraFsEyeL.setAttribute('transform', `translate(${98.7 + fsEyeX}, ${207 + fsEyeY})`);
+        elements.noraFsEyeL.setAttribute('transform', `translate(${98.7 + currentEyeX * 1.35}, ${207 + currentEyeY * 1.35})`);
       }
       if (elements.noraFsEyeR) {
-        elements.noraFsEyeR.setAttribute('transform', `translate(${231.5 + fsEyeX}, ${206.7 + fsEyeY})`);
+        elements.noraFsEyeR.setAttribute('transform', `translate(${231.5 + currentEyeX * 1.35}, ${206.7 + currentEyeY * 1.35})`);
+      }
+      if (elements.noraFsFaceFeatures) {
+        elements.noraFsFaceFeatures.setAttribute('transform', `translate(${currentFaceX * 1.25}, ${currentFaceY * 1.25})`);
       }
     }
+
+    requestAnimationFrame(gazePhysicsLoop);
+  }
+
+  // Micro-saccades: subtle eye darting when thinking or observing to look truly alive
+  function setupMicroSaccades() {
+    function saccade() {
+      // Small 1.5 - 2.5px spontaneous eye glance
+      if (Math.random() > 0.4) {
+        saccadeOffsetX = (Math.random() - 0.5) * 4;
+        saccadeOffsetY = (Math.random() - 0.5) * 3;
+      } else {
+        saccadeOffsetX = 0;
+        saccadeOffsetY = 0;
+      }
+      const delay = 1800 + Math.random() * 2400;
+      setTimeout(saccade, delay);
+    }
+    setTimeout(saccade, 2000);
   }
 
   function setupBlinking() {
@@ -1096,10 +1138,10 @@
         if (elements.noraFullscreenAvatar) elements.noraFullscreenAvatar.classList.remove('blinking');
       }, 140);
 
-      const nextDelay = 3200 + Math.random() * 2800;
+      const nextDelay = 3000 + Math.random() * 2600;
       setTimeout(blink, nextDelay);
     }
-    setTimeout(blink, 2500);
+    setTimeout(blink, 2200);
   }
 
   function initVoiceRecognition() {
@@ -1469,9 +1511,57 @@
     showToast(voiceState.ttsEnabled ? 'Озвучка Nora включена' : 'Озвучка Nora выключена');
   }
 
+  function handleCompanionClick() {
+    if (voiceState.isJumping || voiceState.isOpen) return;
+    voiceState.isJumping = true;
+
+    const btn = elements.noraCompanionBtn;
+    const avatar = elements.noraBtnAvatar;
+    const shockwave = elements.noraClickShockwave;
+    const sparkles = elements.noraSparkles;
+    const cloud = elements.noraSpeechCloud;
+
+    // 1. Анимация прыжка и счастливое выражение лица (^ _ ^)
+    if (btn) btn.classList.add('jumping');
+    if (avatar) avatar.classList.add('happy-eyes');
+
+    // 2. Вспышка ударной волны и звездных искр
+    if (shockwave) {
+      shockwave.classList.remove('active');
+      void shockwave.offsetWidth;
+      shockwave.classList.add('active');
+    }
+    if (sparkles) {
+      sparkles.classList.remove('active');
+      void sparkles.offsetWidth;
+      sparkles.classList.add('active');
+    }
+
+    // 3. Радостное облачко речи
+    if (cloud) {
+      cloud.innerHTML = '<span>Полетели! 🚀</span>';
+      cloud.classList.add('show-cloud');
+    }
+
+    // 4. Бесшовный переход в полноэкранный режим в верхней точке прыжка
+    setTimeout(() => {
+      openVoiceMode();
+      setTimeout(() => {
+        if (btn) btn.classList.remove('jumping');
+        if (avatar) avatar.classList.remove('happy-eyes');
+        if (sparkles) sparkles.classList.remove('active');
+        if (cloud) {
+          cloud.classList.remove('show-cloud');
+          cloud.innerHTML = '<span>Привет! Поговорим? 🎙️</span>';
+        }
+        voiceState.isJumping = false;
+      }, 450);
+    }, 320);
+  }
+
   function setupVoiceOverlayEvents() {
     if (elements.noraCompanionBtn) {
-      elements.noraCompanionBtn.onclick = () => openVoiceMode();
+      elements.noraCompanionBtn.onclick = () => handleCompanionClick();
     }
 
     if (elements.noraVoiceCloseBtn) {

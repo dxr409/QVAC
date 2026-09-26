@@ -1218,9 +1218,14 @@ pre code {
     top: -50px;
   }
 
+  .nora-companion-dock {
+    right: 24px;
+    top: -68px;
+  }
+
   .nora-companion-btn {
-    width: 54px;
-    height: 56px;
+    width: 76px;
+    height: 78px;
   }
 }
 
@@ -1229,12 +1234,138 @@ pre code {
    ========================================================================== */
 .nora-companion-dock {
   position: absolute;
-  right: 76px;
-  top: -58px;
+  right: 84px;
+  top: -88px;
   z-index: 25;
   pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
+/* Мягкая динамическая тень-лужица под персонажем */
+.nora-shadow-puddle {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 76px;
+  height: 18px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.48) 0%, rgba(0, 210, 170, 0.08) 40%, rgba(0, 0, 0, 0) 75%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: noraPuddleBreathe 3.6s ease-in-out infinite;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  z-index: 1;
+}
+
+@keyframes noraPuddleBreathe {
+  0%, 100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.55;
+  }
+  35% {
+    transform: translateX(-50%) scale(0.85);
+    opacity: 0.35;
+  }
+  68% {
+    transform: translateX(-50%) scale(0.78);
+    opacity: 0.25;
+  }
+  85% {
+    transform: translateX(-50%) scale(0.95);
+    opacity: 0.5;
+  }
+}
+
+/* Ударная волна и кольцо энергии при клике */
+.nora-click-shockwave {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 90px;
+  height: 90px;
+  border: 3px solid #00d2aa;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0.2);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.nora-click-shockwave.active {
+  animation: shockwaveBurst 0.55s cubic-bezier(0.1, 0.85, 0.25, 1) forwards;
+}
+
+@keyframes shockwaveBurst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 1;
+    box-shadow: 0 0 24px rgba(0, 210, 170, 0.9);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.8);
+    opacity: 0;
+    box-shadow: 0 0 50px rgba(0, 210, 170, 0);
+  }
+}
+
+/* Летающие искры/звездочки при клике */
+.nora-sparkles-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 35;
+}
+
+.nora-sparkle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 1.25rem;
+  color: #facc15;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+  filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.85));
+}
+
+.nora-sparkles-container.active .sp-1 {
+  animation: sparkleFly1 0.6s ease-out forwards;
+}
+.nora-sparkles-container.active .sp-2 {
+  animation: sparkleFly2 0.6s ease-out forwards;
+}
+.nora-sparkles-container.active .sp-3 {
+  animation: sparkleFly3 0.6s ease-out forwards;
+}
+.nora-sparkles-container.active .sp-4 {
+  animation: sparkleFly4 0.6s ease-out forwards;
+}
+
+@keyframes sparkleFly1 {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  40% { opacity: 1; }
+  100% { transform: translate(calc(-50% - 55px), calc(-50% - 60px)) scale(1.4) rotate(45deg); opacity: 0; }
+}
+@keyframes sparkleFly2 {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  40% { opacity: 1; }
+  100% { transform: translate(calc(-50% + 55px), calc(-50% - 65px)) scale(1.5) rotate(-35deg); opacity: 0; }
+}
+@keyframes sparkleFly3 {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  40% { opacity: 1; }
+  100% { transform: translate(calc(-50% - 48px), calc(-50% + 25px)) scale(1.2) rotate(60deg); opacity: 0; }
+}
+@keyframes sparkleFly4 {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  40% { opacity: 1; }
+  100% { transform: translate(calc(-50% + 50px), calc(-50% + 20px)) scale(1.3) rotate(-50deg); opacity: 0; }
+}
+
+/* Главная кнопка-персонаж */
 .nora-companion-btn {
   background: none;
   border: none;
@@ -1243,33 +1374,73 @@ pre code {
   cursor: pointer;
   outline: none;
   position: relative;
-  width: 66px;
-  height: 68px;
+  width: 96px;
+  height: 98px;
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 10px rgba(0, 210, 170, 0.25));
-  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.24s ease;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 14px rgba(0, 210, 170, 0.28));
+  transition: filter 0.25s ease;
   user-select: none;
   -webkit-user-select: none;
+  z-index: 20;
 }
 
 .nora-companion-btn:hover {
-  transform: translateY(-5px) scale(1.15);
-  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 18px rgba(0, 210, 170, 0.55));
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 24px rgba(0, 210, 170, 0.65));
 }
 
-.nora-companion-btn:active {
-  transform: scale(0.94);
+/* Анимация клика — энергичный радостный прыжок со squash & stretch */
+.nora-companion-btn.jumping {
+  animation: noraClickSuperJump 0.48s cubic-bezier(0.18, 0.89, 0.32, 1.25) forwards !important;
 }
 
+@keyframes noraClickSuperJump {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    /* Приседание перед прыжком */
+    transform: translateY(12px) scale(1.3, 0.7);
+  }
+  50% {
+    /* Мощный взлет вверх с вытягиванием */
+    transform: translateY(-50px) scale(0.85, 1.32);
+  }
+  75% {
+    /* Зависание в верхней точке */
+    transform: translateY(-46px) scale(1.08, 1.05);
+  }
+  100% {
+    /* Раскрытие навстречу зрителю */
+    transform: translateY(-24px) scale(1.28, 1.28);
+  }
+}
+
+/* Оболочка лица с органическим дыханием персонажа (Squash & Stretch) */
 .nora-avatar-face {
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: noraGentlyFloat 4s ease-in-out infinite;
+  animation: noraOrganicBreath 3.6s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+@keyframes noraOrganicBreath {
+  0%, 100% {
+    transform: translateY(0px) scale(1, 1);
+  }
+  32% {
+    transform: translateY(-6px) scale(0.985, 1.02);
+  }
+  68% {
+    transform: translateY(-9px) scale(0.97, 1.035);
+  }
+  86% {
+    transform: translateY(-2px) scale(1.02, 0.985);
+  }
 }
 
 .nora-svg {
@@ -1279,9 +1450,14 @@ pre code {
   display: block;
 }
 
-/* Eye pupil smooth gaze transitions */
+/* Детали лица: 3D параллакс черт лица */
+.nora-face-features {
+  transition: transform 0.08s ease-out;
+}
+
+/* Плавный перенос взгляда глаз */
 .nora-eye-g {
-  transition: transform 0.06s ease-out;
+  transition: transform 0.05s ease-out;
 }
 
 .nora-eye-circle {
@@ -1289,71 +1465,116 @@ pre code {
   transition: transform 0.08s ease;
 }
 
-/* Blinking state */
-.blinking .nora-eye-circle {
-  transform: scaleY(0.08);
+/* Блики зрачков */
+.nora-pupil-gleam-1,
+.nora-pupil-gleam-2 {
+  transform-origin: center;
+  transition: transform 0.12s ease;
 }
 
-/* Mouth speaking animation */
+.nora-companion-btn:hover .nora-pupil-gleam-1 {
+  transform: scale(1.15);
+}
+
+/* Румяные щечки с мягким свечением */
+.nora-blush-cheek {
+  opacity: 0.45;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  transform-origin: center;
+}
+
+.nora-companion-btn:hover .nora-blush-cheek {
+  opacity: 0.95;
+  transform: scale(1.12);
+}
+
+/* Верхний контурный 3D блик */
+.nora-rim-highlight {
+  transition: opacity 0.3s ease;
+}
+
+.nora-companion-btn:hover .nora-rim-highlight {
+  opacity: 0.9;
+}
+
+/* Моргание */
+.blinking .nora-eye-circle {
+  transform: scaleY(0.06);
+}
+.blinking .nora-pupil-gleam-1,
+.blinking .nora-pupil-gleam-2 {
+  opacity: 0;
+}
+
+/* Счастливые глаза при клике или радости */
+.happy-eyes .nora-eye-normal {
+  display: none !important;
+}
+.happy-eyes .nora-eye-happy {
+  display: block !important;
+  opacity: 1 !important;
+}
+
+/* Говорящий ротик */
 .nora-mouth-g {
   transform-origin: center;
   transition: transform 0.15s ease;
 }
 
-@keyframes noraMouthSpeak {
+.nora-mouth-tongue {
+  transition: transform 0.15s ease;
+}
+
+@keyframes noraMouthSpeakOrganic {
   0% { transform: scale(1, 1); }
-  50% { transform: scale(1.15, 1.45) translateY(1px); }
-  100% { transform: scale(0.9, 0.7); }
+  40% { transform: scale(1.22, 1.55) translateY(2px); }
+  75% { transform: scale(0.92, 0.75); }
+  100% { transform: scale(1.15, 1.35) translateY(1px); }
 }
 
 .speaking .nora-mouth-g {
-  animation: noraMouthSpeak 0.22s infinite alternate ease-in-out;
+  animation: noraMouthSpeakOrganic 0.26s infinite alternate ease-in-out;
 }
 
-/* Hover speech bubble tooltip */
+/* Облачко речи-подсказка */
 .nora-speech-cloud {
   position: absolute;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
   right: 0;
-  background: rgba(18, 22, 30, 0.95);
-  border: 1px solid rgba(0, 210, 170, 0.4);
-  border-radius: 12px;
-  padding: 6px 14px;
-  font-size: 0.85rem;
+  background: rgba(18, 24, 34, 0.96);
+  border: 1px solid rgba(0, 210, 170, 0.45);
+  border-radius: 14px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
   font-weight: 500;
   color: #f1f5f9;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(6px);
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(8px);
+  transform: translateY(8px) scale(0.95);
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 0 14px rgba(0, 210, 170, 0.2);
+  backdrop-filter: blur(10px);
   z-index: 30;
 }
 
 .nora-speech-cloud::after {
   content: '';
   position: absolute;
-  bottom: -5px;
-  right: 24px;
-  width: 10px;
-  height: 10px;
-  background: rgba(18, 22, 30, 0.95);
-  border-right: 1px solid rgba(0, 210, 170, 0.4);
-  border-bottom: 1px solid rgba(0, 210, 170, 0.4);
+  bottom: -6px;
+  right: 32px;
+  width: 11px;
+  height: 11px;
+  background: rgba(18, 24, 34, 0.96);
+  border-right: 1px solid rgba(0, 210, 170, 0.45);
+  border-bottom: 1px solid rgba(0, 210, 170, 0.45);
   transform: rotate(45deg);
 }
 
 .nora-companion-btn:hover .nora-speech-cloud,
 .nora-speech-cloud.show-cloud {
   opacity: 1;
-  transform: translateY(0);
-}
-
-@keyframes noraGentlyFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  transform: translateY(0) scale(1);
 }
 
 /* ==========================================================================
