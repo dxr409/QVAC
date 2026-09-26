@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Nora — Local AI</title>
   <link rel="icon" type="image/png" href="/nora-avatar-3d.png">
-  <link rel="stylesheet" href="/style.css?v=7.0">
+  <link rel="stylesheet" href="/style.css?v=8.0">
 </head>
 <body>
 
-  <!-- Задний фон в стиле OpenAI Codex (архитектурная сетка, мягкое свечение и тактильная зернистость) -->
+  <!-- Задний фон в стиле OpenAI Codex (архитектурная сетка, интерактивный световой след и тактильная зернистость) -->
   <div class="codex-grid-background" aria-hidden="true"></div>
+  <canvas class="codex-trail-canvas" id="codexTrailCanvas" aria-hidden="true"></canvas>
   <div class="codex-ambient-glow" aria-hidden="true"></div>
   <div class="codex-noise-overlay" aria-hidden="true"></div>
 
@@ -367,6 +368,6 @@
   <!-- Уведомления -->
   <div class="toast-box" id="toastContainer"></div>
 
-  <script src="/app.js?v=7.0"></script>
+  <script src="/app.js?v=8.0"></script>
 </body>
 </html>

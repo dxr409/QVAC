@@ -127,6 +127,7 @@
     setupEventListeners();
     initSpeechRecognition();
     initNoraCompanion();
+    initCodexBackgroundTrail();
     checkHealth();
     setInterval(checkHealth, 12000);
   }
@@ -1666,6 +1667,239 @@
         closeVoiceMode();
       }
     });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // OPENAI CODEX FLUID AURORA MOUSE TRAIL EFFECT
+  // ══════════════════════════════════════════════════════════════════════════
+
+  function initCodexBackgroundTrail() {
+    const canvas = document.getElementById('codexTrailCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return;
+
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    resize();
+    window.addEventListener('resize', resize, { passive: true });
+
+    // Interactive trail points & stardust particle system
+    const points = [];
+    const particles = [];
+    let lastX = null;
+    let lastY = null;
+    let lastTime = 0;
+    let isLoopRunning = false;
+
+    function addPoint(x, y) {
+      const now = performance.now();
+      if (lastX === null) {
+        lastX = x;
+        lastY = y;
+        lastTime = now;
+      }
+
+      const dx = x - lastX;
+      const dy = y - lastY;
+      const dist = Math.hypot(dx, dy);
+      const dt = Math.max(now - lastTime, 1);
+      const speed = Math.min(dist / dt, 6.0); // px per ms
+
+      // Interpolate smooth intermediate steps if cursor moved more than 7px
+      const steps = Math.max(1, Math.min(Math.floor(dist / 7), 10));
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const ix = lastX + dx * t;
+        const iy = lastY + dy * t;
+        const radius = Math.max(28, Math.min(65, 34 + speed * 6.5));
+
+        points.push({
+          x: ix,
+          y: iy,
+          age: 0,
+          maxLife: 42 + Math.floor(speed * 4),
+          radius: radius,
+          speed: speed,
+          colorHue: (now * 0.05 + i * 2) % 360
+        });
+
+        // Spawn delicate stardust sparks along the wake
+        if (Math.random() < 0.35 + speed * 0.1) {
+          const angle = Math.random() * Math.PI * 2;
+          const sparkSpeed = 0.3 + Math.random() * 1.5;
+          particles.push({
+            x: ix + (Math.random() - 0.5) * 16,
+            y: iy + (Math.random() - 0.5) * 16,
+            vx: Math.cos(angle) * sparkSpeed + dx * 0.05,
+            vy: Math.sin(angle) * sparkSpeed + dy * 0.05,
+            size: 1.2 + Math.random() * 2.2,
+            age: 0,
+            maxLife: 32 + Math.random() * 24,
+            alpha: 0.8 + Math.random() * 0.2
+          });
+        }
+      }
+
+      lastX = x;
+      lastY = y;
+      lastTime = now;
+
+      // Keep arrays within performant bounds
+      if (points.length > 200) points.splice(0, points.length - 200);
+      if (particles.length > 120) particles.splice(0, particles.length - 120);
+
+      if (!isLoopRunning) {
+        isLoopRunning = true;
+        requestAnimationFrame(renderLoop);
+      }
+    }
+
+    window.addEventListener('mousemove', e => {
+      addPoint(e.clientX, e.clientY);
+    }, { passive: true });
+
+    window.addEventListener('touchmove', e => {
+      if (e.touches && e.touches[0]) {
+        addPoint(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    window.addEventListener('mouseleave', () => {
+      lastX = null;
+      lastY = null;
+    });
+
+    function renderLoop() {
+      // Clear canvas cleanly
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. Draw glowing aurora trail points using screen blend mode
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+
+      for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        p.age++;
+        const progress = p.age / p.maxLife;
+        if (progress >= 1) continue;
+
+        // Smooth cubic ease-out fade
+        const alpha = Math.pow(1 - progress, 1.8);
+        const curRadius = p.radius * (1.0 + progress * 0.45);
+
+        // Multi-stop radial aurora gradient (Cyan / Turquoise / Teal / Electric Indigo)
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, curRadius);
+        // Bright core
+        grad.addColorStop(0, `rgba(180, 255, 245, ${alpha * 0.45})`);
+        // Vibrant OpenAI signature emerald-cyan
+        grad.addColorStop(0.28, `rgba(0, 210, 170, ${alpha * 0.32})`);
+        // Sky blue
+        grad.addColorStop(0.58, `rgba(56, 189, 248, ${alpha * 0.16})`);
+        // Violet-indigo edge
+        grad.addColorStop(0.85, `rgba(99, 102, 241, ${alpha * 0.06})`);
+        grad.addColorStop(1, 'rgba(8, 9, 13, 0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, curRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 2. Draw smooth continuous glowing ribbon spine through recent points
+      const activePoints = points.filter(p => (p.age / p.maxLife) < 0.75);
+      if (activePoints.length > 2) {
+        ctx.beginPath();
+        ctx.moveTo(activePoints[0].x, activePoints[0].y);
+
+        for (let i = 1; i < activePoints.length - 1; i++) {
+          const xc = (activePoints[i].x + activePoints[i + 1].x) / 2;
+          const yc = (activePoints[i].y + activePoints[i + 1].y) / 2;
+          ctx.quadraticCurveTo(activePoints[i].x, activePoints[i].y, xc, yc);
+        }
+
+        const lastIdx = activePoints.length - 1;
+        ctx.lineTo(activePoints[lastIdx].x, activePoints[lastIdx].y);
+
+        // Core laser glow
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = 'rgba(0, 210, 170, 0.75)';
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = 'rgba(210, 255, 250, 0.55)';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        // Secondary soft halo ribbon
+        ctx.shadowBlur = 32;
+        ctx.shadowColor = 'rgba(56, 189, 248, 0.65)';
+        ctx.lineWidth = 9;
+        ctx.strokeStyle = 'rgba(0, 210, 170, 0.22)';
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      // 3. Draw drifting stardust sparks
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (let i = 0; i < particles.length; i++) {
+        const pt = particles[i];
+        pt.age++;
+        const prog = pt.age / pt.maxLife;
+        if (prog >= 1) continue;
+
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.vx *= 0.95;
+        pt.vy *= 0.95;
+
+        const pAlpha = pt.alpha * (1 - prog);
+        const pSize = pt.size * (1 - prog * 0.3);
+
+        const sparkGrad = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, pSize * 2.8);
+        sparkGrad.addColorStop(0, `rgba(255, 255, 255, ${pAlpha * 0.9})`);
+        sparkGrad.addColorStop(0.35, `rgba(0, 210, 170, ${pAlpha * 0.75})`);
+        sparkGrad.addColorStop(0.7, `rgba(56, 189, 248, ${pAlpha * 0.3})`);
+        sparkGrad.addColorStop(1, 'rgba(0, 210, 170, 0)');
+
+        ctx.fillStyle = sparkGrad;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pSize * 2.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // Filter out dead points and particles
+      for (let i = points.length - 1; i >= 0; i--) {
+        if (points[i].age >= points[i].maxLife) points.splice(i, 1);
+      }
+      for (let i = particles.length - 1; i >= 0; i--) {
+        if (particles[i].age >= particles[i].maxLife) particles.splice(i, 1);
+      }
+
+      // If no points remain, stop loop to save CPU & battery
+      if (points.length === 0 && particles.length === 0) {
+        ctx.clearRect(0, 0, width, height);
+        isLoopRunning = false;
+        return;
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
