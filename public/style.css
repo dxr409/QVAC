@@ -86,6 +86,7 @@ html, body {
   pointer-events: none;
   z-index: 1;
   display: block;
+  mix-blend-mode: screen;
 }
 
 .codex-ambient-glow {

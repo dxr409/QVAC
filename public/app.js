@@ -1670,7 +1670,7 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // OPENAI CODEX FLUID AURORA MOUSE TRAIL EFFECT
+  // OPENAI CODEX ETHEREAL SOFT MOUSE TRAIL & GRID ILLUMINATION
   // ══════════════════════════════════════════════════════════════════════════
 
   function initCodexBackgroundTrail() {
@@ -1697,202 +1697,221 @@
     resize();
     window.addEventListener('resize', resize, { passive: true });
 
-    // Interactive trail points & stardust particle system
-    const points = [];
-    const particles = [];
-    let lastX = null;
-    let lastY = null;
-    let lastTime = 0;
+    // Smooth cursor physics & delicate luminous trail
+    const trail = [];
+    const GRID_SIZE = 52; // Matches .codex-grid-background 52px
+    const cursor = {
+      x: -999,
+      y: -999,
+      targetX: -999,
+      targetY: -999,
+      active: false,
+      alpha: 0
+    };
+    let lastStampX = null;
+    let lastStampY = null;
+    let lastStampTime = 0;
     let isLoopRunning = false;
 
-    function addPoint(x, y) {
-      const now = performance.now();
-      if (lastX === null) {
-        lastX = x;
-        lastY = y;
-        lastTime = now;
-      }
-
-      const dx = x - lastX;
-      const dy = y - lastY;
-      const dist = Math.hypot(dx, dy);
-      const dt = Math.max(now - lastTime, 1);
-      const speed = Math.min(dist / dt, 6.0); // px per ms
-
-      // Interpolate smooth intermediate steps if cursor moved more than 7px
-      const steps = Math.max(1, Math.min(Math.floor(dist / 7), 10));
-      for (let i = 1; i <= steps; i++) {
-        const t = i / steps;
-        const ix = lastX + dx * t;
-        const iy = lastY + dy * t;
-        const radius = Math.max(28, Math.min(65, 34 + speed * 6.5));
-
-        points.push({
-          x: ix,
-          y: iy,
-          age: 0,
-          maxLife: 42 + Math.floor(speed * 4),
-          radius: radius,
-          speed: speed,
-          colorHue: (now * 0.05 + i * 2) % 360
-        });
-
-        // Spawn delicate stardust sparks along the wake
-        if (Math.random() < 0.35 + speed * 0.1) {
-          const angle = Math.random() * Math.PI * 2;
-          const sparkSpeed = 0.3 + Math.random() * 1.5;
-          particles.push({
-            x: ix + (Math.random() - 0.5) * 16,
-            y: iy + (Math.random() - 0.5) * 16,
-            vx: Math.cos(angle) * sparkSpeed + dx * 0.05,
-            vy: Math.sin(angle) * sparkSpeed + dy * 0.05,
-            size: 1.2 + Math.random() * 2.2,
-            age: 0,
-            maxLife: 32 + Math.random() * 24,
-            alpha: 0.8 + Math.random() * 0.2
-          });
-        }
-      }
-
-      lastX = x;
-      lastY = y;
-      lastTime = now;
-
-      // Keep arrays within performant bounds
-      if (points.length > 200) points.splice(0, points.length - 200);
-      if (particles.length > 120) particles.splice(0, particles.length - 120);
-
+    function startLoop() {
       if (!isLoopRunning) {
         isLoopRunning = true;
         requestAnimationFrame(renderLoop);
       }
     }
 
+    function onPointerMove(px, py) {
+      cursor.targetX = px;
+      cursor.targetY = py;
+      cursor.active = true;
+
+      const now = performance.now();
+
+      if (lastStampX === null) {
+        lastStampX = px;
+        lastStampY = py;
+        lastStampTime = now;
+        cursor.x = px;
+        cursor.y = py;
+      }
+
+      const dx = px - lastStampX;
+      const dy = py - lastStampY;
+      const dist = Math.hypot(dx, dy);
+      const dt = Math.max(now - lastStampTime, 1);
+      const speed = Math.min(dist / dt, 4.0); // velocity factor
+
+      // Interpolate soft stamps every 3.5px for a perfectly continuous, silky fluid wake
+      if (dist >= 3.5) {
+        const steps = Math.min(Math.floor(dist / 3.5), 18);
+        for (let i = 1; i <= steps; i++) {
+          const t = i / steps;
+          const ix = lastStampX + dx * t;
+          const iy = lastStampY + dy * t;
+
+          // Soft ethereal aura parameters
+          // Generous soft radius (145px - 210px) that gently dissolves
+          const radius = 145 + speed * 15;
+          // Very gentle peak opacity (0.09 - 0.14) - delicate, silky, never harsh
+          const intensity = 0.095 + Math.min(speed * 0.012, 0.045);
+          // Long, silky lingering lifespan (~1350ms to 1800ms)
+          const duration = 1350 + Math.min(speed * 120, 450);
+
+          trail.push({
+            x: ix,
+            y: iy,
+            birth: now,
+            duration: duration,
+            radius: radius,
+            intensity: intensity
+          });
+        }
+
+        lastStampX = px;
+        lastStampY = py;
+        lastStampTime = now;
+      }
+
+      // Keep trail buffer performant
+      if (trail.length > 220) {
+        trail.splice(0, trail.length - 220);
+      }
+
+      startLoop();
+    }
+
     window.addEventListener('mousemove', e => {
-      addPoint(e.clientX, e.clientY);
+      onPointerMove(e.clientX, e.clientY);
     }, { passive: true });
 
     window.addEventListener('touchmove', e => {
       if (e.touches && e.touches[0]) {
-        addPoint(e.touches[0].clientX, e.touches[0].clientY);
+        onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
       }
     }, { passive: true });
 
     window.addEventListener('mouseleave', () => {
-      lastX = null;
-      lastY = null;
+      cursor.active = false;
+      lastStampX = null;
+      lastStampY = null;
     });
 
-    function renderLoop() {
+    window.addEventListener('touchend', () => {
+      cursor.active = false;
+      lastStampX = null;
+      lastStampY = null;
+    });
+
+    function renderLoop(now) {
       // Clear canvas cleanly
       ctx.clearRect(0, 0, width, height);
 
-      // 1. Draw glowing aurora trail points using screen blend mode
+      // Smooth cursor interpolation (damping)
+      if (cursor.active) {
+        cursor.alpha += (1 - cursor.alpha) * 0.12;
+        cursor.x += (cursor.targetX - cursor.x) * 0.28;
+        cursor.y += (cursor.targetY - cursor.y) * 0.28;
+      } else {
+        cursor.alpha += (0 - cursor.alpha) * 0.08;
+      }
+
+      // Use 'screen' composition for ethereal, velvety light stacking without clipping
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
 
-      for (let i = 0; i < points.length; i++) {
-        const p = points[i];
-        p.age++;
-        const progress = p.age / p.maxLife;
+      // 1. Draw continuous soft-diffused aurora trail
+      for (let i = 0; i < trail.length; i++) {
+        const p = trail[i];
+        const age = now - p.birth;
+        const progress = age / p.duration;
         if (progress >= 1) continue;
 
-        // Smooth cubic ease-out fade
-        const alpha = Math.pow(1 - progress, 1.8);
-        const curRadius = p.radius * (1.0 + progress * 0.45);
+        // Ultra-gentle quartic ease-out fade: lingers softly, then gracefully vanishes
+        const easeAlpha = Math.pow(1 - progress, 2.4);
+        const alpha = p.intensity * easeAlpha;
+        if (alpha < 0.001) continue;
 
-        // Multi-stop radial aurora gradient (Cyan / Turquoise / Teal / Electric Indigo)
-        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, curRadius);
-        // Bright core
-        grad.addColorStop(0, `rgba(180, 255, 245, ${alpha * 0.45})`);
-        // Vibrant OpenAI signature emerald-cyan
-        grad.addColorStop(0.28, `rgba(0, 210, 170, ${alpha * 0.32})`);
-        // Sky blue
-        grad.addColorStop(0.58, `rgba(56, 189, 248, ${alpha * 0.16})`);
-        // Violet-indigo edge
-        grad.addColorStop(0.85, `rgba(99, 102, 241, ${alpha * 0.06})`);
+        // Radius gently expands as light vaporizes
+        const r = p.radius * (0.88 + 0.28 * Math.sqrt(progress));
+
+        // OpenAI Codex Ethereal Light Gradient:
+        // Soft moonlit aqua core -> signature emerald-mint -> celestial azure -> deep violet twilight -> transparent
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        grad.addColorStop(0, `rgba(220, 255, 245, ${alpha * 1.0})`);
+        grad.addColorStop(0.18, `rgba(0, 210, 170, ${alpha * 0.72})`);
+        grad.addColorStop(0.44, `rgba(56, 189, 248, ${alpha * 0.38})`);
+        grad.addColorStop(0.72, `rgba(99, 102, 241, ${alpha * 0.14})`);
+        grad.addColorStop(0.92, `rgba(30, 41, 59, ${alpha * 0.04})`);
         grad.addColorStop(1, 'rgba(8, 9, 13, 0)');
 
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, curRadius, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // 2. Draw smooth continuous glowing ribbon spine through recent points
-      const activePoints = points.filter(p => (p.age / p.maxLife) < 0.75);
-      if (activePoints.length > 2) {
-        ctx.beginPath();
-        ctx.moveTo(activePoints[0].x, activePoints[0].y);
+      // 2. Active breathing spotlight directly under the live cursor
+      if (cursor.alpha > 0.005 && cursor.x > -500) {
+        const breath = 1.0 + 0.05 * Math.sin(now * 0.0024);
+        const liveRadius = 185 * breath;
+        const liveAlpha = 0.135 * cursor.alpha;
 
-        for (let i = 1; i < activePoints.length - 1; i++) {
-          const xc = (activePoints[i].x + activePoints[i + 1].x) / 2;
-          const yc = (activePoints[i].y + activePoints[i + 1].y) / 2;
-          ctx.quadraticCurveTo(activePoints[i].x, activePoints[i].y, xc, yc);
+        const liveGrad = ctx.createRadialGradient(cursor.x, cursor.y, 0, cursor.x, cursor.y, liveRadius);
+        liveGrad.addColorStop(0, `rgba(235, 255, 250, ${liveAlpha * 1.0})`);
+        liveGrad.addColorStop(0.2, `rgba(0, 220, 180, ${liveAlpha * 0.75})`);
+        liveGrad.addColorStop(0.48, `rgba(56, 189, 248, ${liveAlpha * 0.40})`);
+        liveGrad.addColorStop(0.75, `rgba(99, 102, 241, ${liveAlpha * 0.15})`);
+        liveGrad.addColorStop(1, 'rgba(8, 9, 13, 0)');
+
+        ctx.fillStyle = liveGrad;
+        ctx.beginPath();
+        ctx.arc(cursor.x, cursor.y, liveRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 3. Delicate Architectural Grid Illumination (The authentic Codex signature)
+      // When cursor/trail passes over grid intersections, delicately illuminate the micro-crosshairs
+      if (cursor.alpha > 0.01 && cursor.x > -500) {
+        const inspectRadius = 190;
+        const minGx = Math.max(0, Math.floor((cursor.x - inspectRadius) / GRID_SIZE) * GRID_SIZE);
+        const maxGx = Math.min(width, Math.ceil((cursor.x + inspectRadius) / GRID_SIZE) * GRID_SIZE);
+        const minGy = Math.max(0, Math.floor((cursor.y - inspectRadius) / GRID_SIZE) * GRID_SIZE);
+        const maxGy = Math.min(height, Math.ceil((cursor.y + inspectRadius) / GRID_SIZE) * GRID_SIZE);
+
+        ctx.lineWidth = 1;
+        for (let gx = minGx; gx <= maxGx; gx += GRID_SIZE) {
+          for (let gy = minGy; gy <= maxGy; gy += GRID_SIZE) {
+            const dx = gx - cursor.x;
+            const dy = gy - cursor.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < inspectRadius) {
+              const factor = Math.pow(1 - dist / inspectRadius, 2.2);
+              const crossAlpha = factor * 0.28 * cursor.alpha;
+              if (crossAlpha > 0.015) {
+                ctx.strokeStyle = `rgba(0, 225, 185, ${crossAlpha})`;
+                ctx.beginPath();
+                ctx.moveTo(gx - 3.5, gy);
+                ctx.lineTo(gx + 3.5, gy);
+                ctx.moveTo(gx, gy - 3.5);
+                ctx.lineTo(gx, gy + 3.5);
+                ctx.stroke();
+              }
+            }
+          }
         }
-
-        const lastIdx = activePoints.length - 1;
-        ctx.lineTo(activePoints[lastIdx].x, activePoints[lastIdx].y);
-
-        // Core laser glow
-        ctx.shadowBlur = 18;
-        ctx.shadowColor = 'rgba(0, 210, 170, 0.75)';
-        ctx.lineWidth = 3.5;
-        ctx.strokeStyle = 'rgba(210, 255, 250, 0.55)';
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.stroke();
-
-        // Secondary soft halo ribbon
-        ctx.shadowBlur = 32;
-        ctx.shadowColor = 'rgba(56, 189, 248, 0.65)';
-        ctx.lineWidth = 9;
-        ctx.strokeStyle = 'rgba(0, 210, 170, 0.22)';
-        ctx.stroke();
       }
 
       ctx.restore();
 
-      // 3. Draw drifting stardust sparks
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      for (let i = 0; i < particles.length; i++) {
-        const pt = particles[i];
-        pt.age++;
-        const prog = pt.age / pt.maxLife;
-        if (prog >= 1) continue;
-
-        pt.x += pt.vx;
-        pt.y += pt.vy;
-        pt.vx *= 0.95;
-        pt.vy *= 0.95;
-
-        const pAlpha = pt.alpha * (1 - prog);
-        const pSize = pt.size * (1 - prog * 0.3);
-
-        const sparkGrad = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, pSize * 2.8);
-        sparkGrad.addColorStop(0, `rgba(255, 255, 255, ${pAlpha * 0.9})`);
-        sparkGrad.addColorStop(0.35, `rgba(0, 210, 170, ${pAlpha * 0.75})`);
-        sparkGrad.addColorStop(0.7, `rgba(56, 189, 248, ${pAlpha * 0.3})`);
-        sparkGrad.addColorStop(1, 'rgba(0, 210, 170, 0)');
-
-        ctx.fillStyle = sparkGrad;
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, pSize * 2.8, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-
-      // Filter out dead points and particles
-      for (let i = points.length - 1; i >= 0; i--) {
-        if (points[i].age >= points[i].maxLife) points.splice(i, 1);
-      }
-      for (let i = particles.length - 1; i >= 0; i--) {
-        if (particles[i].age >= particles[i].maxLife) particles.splice(i, 1);
+      // Prune expired trail points
+      for (let i = trail.length - 1; i >= 0; i--) {
+        if (now - trail[i].birth >= trail[i].duration) {
+          trail.splice(i, 1);
+        }
       }
 
-      // If no points remain, stop loop to save CPU & battery
-      if (points.length === 0 && particles.length === 0) {
+      // Sleep loop if idle to save battery & CPU
+      if (trail.length === 0 && (!cursor.active || cursor.alpha < 0.005)) {
         ctx.clearRect(0, 0, width, height);
         isLoopRunning = false;
         return;
