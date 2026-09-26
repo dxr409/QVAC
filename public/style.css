@@ -6,12 +6,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg-main: #0d1117;
-  --bg-sidebar: #090d14;
-  --bg-card: #151b26;
-  --bg-card-hover: #1c2433;
-  --bg-input: #131823;
-  --bg-input-focus: #151b28;
+  --bg-main: transparent;
+  --bg-codex-base: #08090d;
+  --bg-sidebar: rgba(9, 13, 20, 0.78);
+  --bg-card: rgba(21, 27, 38, 0.7);
+  --bg-card-hover: rgba(28, 36, 51, 0.85);
+  --bg-input: rgba(18, 24, 35, 0.82);
+  --bg-input-focus: rgba(21, 28, 41, 0.95);
 
   --border: rgba(255, 255, 255, 0.08);
   --border-subtle: rgba(255, 255, 255, 0.04);
@@ -50,7 +51,7 @@
 html, body {
   height: 100%;
   width: 100%;
-  background-color: var(--bg-main);
+  background-color: var(--bg-codex-base);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 20px;
@@ -58,6 +59,44 @@ html, body {
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   OpenAI Codex Authentic Background System (Grid, Aurora Glow & Noise)
+   ========================================================================== */
+.codex-grid-background {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-color: #08090d;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.032) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.032) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(ellipse 92% 75% at 50% 32%, #000 35%, rgba(0, 0, 0, 0.15) 80%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 92% 75% at 50% 32%, #000 35%, rgba(0, 0, 0, 0.15) 80%, transparent 100%);
+}
+
+.codex-ambient-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(0, 210, 170, 0.075) 0%, rgba(56, 189, 248, 0.038) 28%, transparent 62%),
+    radial-gradient(circle at 72% 58%, rgba(99, 102, 241, 0.042) 0%, transparent 52%),
+    radial-gradient(circle at 28% 78%, rgba(16, 185, 129, 0.032) 0%, transparent 48%);
+}
+
+.codex-noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
 }
 
 /* Custom Minimalist Scrollbar */
@@ -82,7 +121,9 @@ html, body {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background-color: var(--bg-main);
+  position: relative;
+  z-index: 2;
+  background: transparent;
 }
 
 /* ==========================================================================
@@ -401,77 +442,181 @@ html, body {
   margin: 0;
 }
 
-/* Minimalist Welcome Screen */
-.welcome-minimal {
+/* ==========================================================================
+   Gemini-Style Welcome Screen (Hero Mascot + "Hello, Lyazzat" + Big Input)
+   ========================================================================== */
+.gemini-welcome-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin: auto 0;
   text-align: center;
-  padding: 40px 20px;
-  animation: fadeIn 0.3s ease-out;
+  padding: 10px 20px 0 20px;
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   width: 100%;
 }
 
-.welcome-logo-badge {
-  width: 72px;
-  height: 72px;
-  border-radius: 24px;
-  background: radial-gradient(circle at 50% 50%, rgba(0, 210, 170, 0.2), rgba(13, 25, 38, 0.8));
-  border: 1px solid var(--border-focus);
+/* Big Animated Hero Mascot (Nora) */
+.gemini-hero-mascot-dock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.gemini-hero-shadow-puddle {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 115px;
+  height: 24px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55) 0%, rgba(0, 210, 170, 0.12) 40%, transparent 75%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: noraPuddleBreathe 3.6s ease-in-out infinite;
+}
+
+.gemini-hero-mascot-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  width: 146px;
+  height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.2rem;
-  color: var(--accent);
-  margin-bottom: 24px;
-  box-shadow: 0 0 36px rgba(0, 210, 170, 0.25);
+  filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 26px rgba(0, 210, 170, 0.32));
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.welcome-minimal h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
+.gemini-hero-mascot-btn:hover {
+  transform: translateY(-8px) scale(1.1);
+  filter: drop-shadow(0 20px 42px rgba(0, 0, 0, 0.65)) drop-shadow(0 0 34px rgba(0, 210, 170, 0.65));
+}
+
+.gemini-hero-mascot-btn.jumping {
+  animation: noraClickSuperJump 0.48s cubic-bezier(0.18, 0.89, 0.32, 1.25) forwards !important;
+}
+
+.gemini-mascot-avatar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: noraOrganicBreath 3.6s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.gemini-hero-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  display: block;
+}
+
+/* Gemini Greeting Typography */
+.gemini-greeting-block {
+  margin-bottom: 24px;
+}
+
+.gemini-greeting-title {
+  font-size: clamp(2.5rem, 5.2vw, 4.1rem);
+  font-weight: 600;
   color: #ffffff;
   letter-spacing: -0.03em;
-  margin-bottom: 12px;
+  line-height: 1.15;
+  margin-bottom: 10px;
 }
 
-.welcome-minimal p {
-  font-size: 1.2rem;
-  color: var(--text-muted);
-  max-width: 600px;
-  margin-bottom: 40px;
-  line-height: 1.65;
+.gemini-gradient-text {
+  background: linear-gradient(74deg, #4285f4 0%, #9b72cb 32%, #d96570 65%, #10b981 95%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: geminiFlow 8s linear infinite;
+  display: inline-block;
 }
 
-.quick-prompts-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  justify-content: center;
-  max-width: 960px;
+@keyframes geminiFlow {
+  0% { background-position: 0% center; }
+  50% { background-position: 100% center; }
+  100% { background-position: 0% center; }
 }
 
-.quick-prompt-chip {
-  background: rgba(22, 28, 40, 0.8);
-  border: 1px solid var(--border);
+.gemini-greeting-sub {
+  font-size: 1.35rem;
   color: var(--text-secondary);
-  padding: 14px 26px;
-  border-radius: var(--radius-pill);
-  font-size: 1.05rem;
-  cursor: pointer;
-  transition: var(--transition);
-  backdrop-filter: blur(8px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
-.quick-prompt-chip:hover {
-  border-color: var(--accent);
-  color: var(--text-primary);
-  background: rgba(0, 210, 170, 0.08);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 210, 170, 0.12);
+/* ==========================================================================
+   Centered Gemini Mode (When on Empty Screen / 0 messages)
+   ========================================================================== */
+.main-content.welcome-centered-mode {
+  display: flex;
+  flex-direction: column;
 }
+
+.main-content.welcome-centered-mode .topbar {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.main-content.welcome-centered-mode .chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  overflow: visible;
+  padding: 0 24px 28px 24px;
+  max-width: 940px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.main-content.welcome-centered-mode .input-wrapper {
+  flex-shrink: 0;
+  max-width: 940px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px 72px 24px;
+}
+
+/* Hide small docked mascot on welcome screen because the big hero mascot is already right above! */
+.main-content.welcome-centered-mode .nora-companion-dock {
+  display: none !important;
+}
+
+/* Big Gemini Input Card */
+.main-content.welcome-centered-mode .input-card {
+  padding: 22px 30px;
+  border-radius: 34px;
+  min-height: 88px;
+  background: rgba(18, 24, 34, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.6), 0 0 35px rgba(0, 210, 170, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.main-content.welcome-centered-mode .chat-textarea {
+  font-size: 1.35rem;
+  min-height: 52px;
+}
+
+
 
 /* Chat Messages (Frameless, Clean Canvas Style) */
 .message-row {

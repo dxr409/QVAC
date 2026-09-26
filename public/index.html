@@ -5,9 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Nora — Local AI</title>
   <link rel="icon" type="image/svg+xml" href="/qvac-logo.svg">
-  <link rel="stylesheet" href="/style.css?v=5.0">
+  <link rel="stylesheet" href="/style.css?v=6.0">
 </head>
 <body>
+
+  <!-- Задний фон в стиле OpenAI Codex (архитектурная сетка, мягкое свечение и тактильная зернистость) -->
+  <div class="codex-grid-background" aria-hidden="true"></div>
+  <div class="codex-ambient-glow" aria-hidden="true"></div>
+  <div class="codex-noise-overlay" aria-hidden="true"></div>
 
   <div class="app-layout">
 
@@ -43,7 +48,7 @@
     </aside>
 
     <!-- Основная рабочая область (Фокус на диалоге) -->
-    <main class="main-content">
+    <main class="main-content" id="mainContent">
 
       <!-- Верхняя аккуратная полоска -->
       <header class="topbar">
@@ -272,7 +277,10 @@
         <button class="close-btn" id="closeSettingsBtn">✕</button>
       </div>
       <div class="modal-content">
-        <label class="setting-label">Адрес сервера QVAC</label>
+        <label class="setting-label">Ваше имя (для приветствия в стиле Gemini)</label>
+        <input type="text" class="setting-input" id="cfgUserName" placeholder="Lyazzat">
+
+        <label class="setting-label" style="margin-top:14px;">Адрес сервера QVAC</label>
         <input type="text" class="setting-input" id="cfgApiBase" placeholder="http://127.0.0.1:8085">
 
         <label class="setting-label" style="margin-top:14px;">Источник локальной LLM</label>
@@ -446,6 +454,6 @@
   <!-- Уведомления -->
   <div class="toast-box" id="toastContainer"></div>
 
-  <script src="/app.js?v=5.0"></script>
+  <script src="/app.js?v=6.0"></script>
 </body>
 </html>

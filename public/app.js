@@ -26,6 +26,7 @@
     backendType: 'auto',
     customLlmUrl: '',
     activeProviderName: 'Nora',
+    userName: 'Lyazzat',
     systemPrompt:
       'You are Nora, an intelligent, helpful AI assistant running locally. Answer clearly, accurately, and concisely.',
     sessions: [],
@@ -39,6 +40,7 @@
 
   // ── DOM Elements ───────────────────────────────────────────────────────────
   const elements = {
+    mainContent: document.getElementById('mainContent'),
     sidebar: document.getElementById('sidebar'),
     toggleSidebarBtn: document.getElementById('toggleSidebarBtn'),
     openSidebarBtn: document.getElementById('openSidebarBtn'),
@@ -76,6 +78,7 @@
     cfgBackend: document.getElementById('cfgBackend'),
     customLlmRow: document.getElementById('customLlmRow'),
     cfgCustomLlm: document.getElementById('cfgCustomLlm'),
+    cfgUserName: document.getElementById('cfgUserName'),
     checkConnBtn: document.getElementById('checkConnBtn'),
     connStatusText: document.getElementById('connStatusText'),
     systemPromptInput: document.getElementById('systemPromptInput'),
@@ -141,6 +144,9 @@
     const savedPrompt = localStorage.getItem('qvac_system_prompt');
     if (savedPrompt) state.systemPrompt = savedPrompt;
 
+    const savedUser = localStorage.getItem('qvac_user_name');
+    if (savedUser) state.userName = savedUser;
+
     if (elements.cfgApiBase) elements.cfgApiBase.value = state.apiBase;
     if (elements.cfgBackend) elements.cfgBackend.value = state.backendType;
     if (elements.cfgCustomLlm) elements.cfgCustomLlm.value = state.customLlmUrl;
@@ -148,6 +154,7 @@
       elements.customLlmRow.style.display = state.backendType === 'custom' ? 'block' : 'none';
     }
     if (elements.systemPromptInput) elements.systemPromptInput.value = state.systemPrompt;
+    if (elements.cfgUserName) elements.cfgUserName.value = state.userName;
   }
 
   function saveSettings() {
@@ -155,6 +162,11 @@
     state.backendType = elements.cfgBackend ? elements.cfgBackend.value : 'auto';
     state.customLlmUrl = elements.cfgCustomLlm ? elements.cfgCustomLlm.value.trim() : '';
     state.systemPrompt = elements.systemPromptInput ? elements.systemPromptInput.value.trim() : state.systemPrompt;
+
+    if (elements.cfgUserName) {
+      state.userName = elements.cfgUserName.value.trim() || 'Lyazzat';
+      localStorage.setItem('qvac_user_name', state.userName);
+    }
 
     localStorage.setItem('qvac_api_base', state.apiBase);
     localStorage.setItem('qvac_backend', state.backendType);
@@ -170,6 +182,7 @@
     if (elements.settingsModal) elements.settingsModal.classList.remove('open');
     showToast('Settings saved');
     checkHealth();
+    renderChat();
   }
 
   async function checkHealth() {
@@ -334,6 +347,14 @@
   // CHAT RENDERING
   // ══════════════════════════════════════════════════════════════════════════
 
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   function renderChat() {
     if (!elements.chatFeed) return;
     elements.chatFeed.innerHTML = '';
@@ -342,9 +363,12 @@
     const visible = session.messages.filter(m => m.role !== 'system');
 
     if (visible.length === 0) {
+      if (elements.mainContent) elements.mainContent.classList.add('welcome-centered-mode');
       elements.chatFeed.appendChild(renderWelcomeScreen());
       return;
     }
+
+    if (elements.mainContent) elements.mainContent.classList.remove('welcome-centered-mode');
 
     visible.forEach(msg => {
       elements.chatFeed.appendChild(createMessageRow(msg.role, msg.content));
@@ -355,24 +379,89 @@
 
   function renderWelcomeScreen() {
     const wrap = document.createElement('div');
-    wrap.className = 'welcome-minimal';
+    wrap.className = 'gemini-welcome-container';
+    const userName = state.userName || 'Lyazzat';
+
     wrap.innerHTML = `
-      <div class="welcome-logo-badge">⚡</div>
-      <h1>Чем я могу помочь?</h1>
-      <p>Nora · Локальный искусственный интеллект на вашем устройстве.</p>
-      <div class="quick-prompts-row">
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('В чем ключевые преимущества локального ИИ с Nora?')">
-          💡 Что умеет Nora?
-        </button>
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Как прикрепить документ или скан для анализа контекста?')">
-          📚 Как работать с файлами?
-        </button>
-        <button class="quick-prompt-chip" onclick="window.qvac.sendQuick('Напиши пример кода на Python для работы с локальной LLM')">
-          🐍 Пример кода на Python
+      <div class="gemini-hero-mascot-dock">
+        <div class="gemini-hero-shadow-puddle"></div>
+        <button type="button" class="gemini-hero-mascot-btn" id="geminiHeroMascotBtn" title="Нажмите для вызова голосового ассистента Nora" aria-label="Nora Ассистент">
+          <div class="gemini-mascot-avatar" id="geminiHeroAvatar">
+            <svg viewBox="0 0 328 335" class="gemini-hero-svg" id="geminiHeroSvg">
+              <defs>
+                <radialGradient id="noraHeroBlushGrad" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#ff6b8b" stop-opacity="0.8" />
+                  <stop offset="60%" stop-color="#ff7b98" stop-opacity="0.4" />
+                  <stop offset="100%" stop-color="#ff7b98" stop-opacity="0" />
+                </radialGradient>
+              </defs>
+              <!-- Основное тело персонажа -->
+              <image href="/nora-body.png" width="328" height="335" />
+              <!-- 3D блик по контуру головы -->
+              <path class="nora-rim-highlight" d="M 68 150 C 90 85 238 85 260 150" stroke="rgba(255,255,255,0.4)" stroke-width="4.5" fill="none" stroke-linecap="round" />
+              <!-- Румянец на щёчках -->
+              <g class="nora-cheeks-group">
+                <ellipse class="nora-blush-cheek left" cx="72" cy="240" rx="28" ry="16" fill="url(#noraHeroBlushGrad)" />
+                <ellipse class="nora-blush-cheek right" cx="256" cy="240" rx="28" ry="16" fill="url(#noraHeroBlushGrad)" />
+              </g>
+              <!-- Группа черт лица с 3D реакцией на взгляд -->
+              <g class="nora-face-features" id="noraHeroFaceFeatures">
+                <!-- Левый глаз -->
+                <g class="nora-eye-g left" id="noraHeroEyeL" transform="translate(98.7, 207)">
+                  <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
+                  <circle class="nora-pupil-gleam-1" cx="-7" cy="-8" r="8.2" fill="#ffffff" />
+                  <circle class="nora-pupil-gleam-2" cx="8" cy="8" r="3.8" fill="rgba(255,255,255,0.85)" />
+                </g>
+                <!-- Правый глаз -->
+                <g class="nora-eye-g right" id="noraHeroEyeR" transform="translate(231.5, 206.7)">
+                  <circle class="nora-eye-circle" r="25.5" fill="#2e1e21" />
+                  <circle class="nora-pupil-gleam-1" cx="-7" cy="-8" r="8.2" fill="#ffffff" />
+                  <circle class="nora-pupil-gleam-2" cx="8" cy="8" r="3.8" fill="rgba(255,255,255,0.85)" />
+                </g>
+                <!-- Ротик -->
+                <g class="nora-mouth-g" id="noraHeroMouth" transform="translate(164.2, 255.3)">
+                  <path class="nora-mouth-path" d="M -22 -6 Q 0 -5 22 -6 Q 22 18 0 18 Q -22 18 -22 -6 Z" fill="#2e1e21" />
+                  <path class="nora-mouth-tongue" d="M -11 11 Q 0 4 11 11 Q 0 19 -11 11 Z" fill="#ff708a" />
+                </g>
+              </g>
+            </svg>
+          </div>
         </button>
       </div>
+
+      <div class="gemini-greeting-block">
+        <h1 class="gemini-greeting-title">Hello, <span class="gemini-gradient-text">${escapeHtml(userName)}</span></h1>
+        <p class="gemini-greeting-sub">Чем я могу помочь вам сегодня?</p>
+      </div>
     `;
+
+    const heroBtn = wrap.querySelector('#geminiHeroMascotBtn');
+    const heroAvatar = wrap.querySelector('#geminiHeroAvatar');
+    if (heroBtn) {
+      heroBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        handleHeroMascotClick(heroBtn, heroAvatar);
+      });
+    }
+
     return wrap;
+  }
+
+  function handleHeroMascotClick(heroBtn, heroAvatar) {
+    if (voiceState.isJumping || voiceState.isOpen) return;
+    voiceState.isJumping = true;
+
+    if (heroBtn) heroBtn.classList.add('jumping');
+    if (heroAvatar) heroAvatar.classList.add('happy-eyes');
+
+    setTimeout(() => {
+      openVoiceMode();
+      setTimeout(() => {
+        if (heroBtn) heroBtn.classList.remove('jumping');
+        if (heroAvatar) heroAvatar.classList.remove('happy-eyes');
+        voiceState.isJumping = false;
+      }, 450);
+    }, 320);
   }
 
   function createMessageRow(role, content) {
@@ -1014,6 +1103,14 @@
   let currentScale = 1.0, targetScale = 1.0;
   let saccadeOffsetX = 0, saccadeOffsetY = 0;
 
+  // Hero Mascot (Gemini welcome screen) tracking variables
+  let currentHeroEyeX = 0, currentHeroEyeY = 0;
+  let targetHeroEyeX = 0, targetHeroEyeY = 0;
+  let currentHeroFaceX = 0, currentHeroFaceY = 0;
+  let targetHeroFaceX = 0, targetHeroFaceY = 0;
+  let currentHeroTilt = 0, targetHeroTilt = 0;
+  let currentHeroScale = 1.0, targetHeroScale = 1.0;
+
   function initNoraCompanion() {
     initVoiceRecognition();
     setupEyeTracking();
@@ -1070,6 +1167,36 @@
         targetTilt = 0;
       }
     }
+
+    const heroBtn = document.getElementById('geminiHeroMascotBtn');
+    if (heroBtn) {
+      const rect = heroBtn.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = mouseX - centerX;
+      const dy = mouseY - centerY;
+      const dist = Math.hypot(dx, dy);
+
+      const maxShift = 24;
+      const angle = Math.atan2(dy, dx);
+      const shiftDist = Math.min(maxShift, (dist / Math.max(window.innerWidth, 800)) * 54);
+
+      targetHeroEyeX = Math.cos(angle) * shiftDist;
+      targetHeroEyeY = Math.sin(angle) * shiftDist * 0.85;
+
+      targetHeroFaceX = (targetHeroEyeX / maxShift) * 8.5;
+      targetHeroFaceY = (targetHeroEyeY / maxShift) * 5.0;
+
+      const proximityRadius = 380;
+      if (dist < proximityRadius) {
+        const factor = 1 - dist / proximityRadius;
+        targetHeroScale = 1.0 + factor * 0.16;
+        targetHeroTilt = Math.max(-12, Math.min(12, (dx / proximityRadius) * 14));
+      } else {
+        targetHeroScale = 1.0;
+        targetHeroTilt = 0;
+      }
+    }
   }
 
   function gazePhysicsLoop() {
@@ -1109,6 +1236,28 @@
       }
     }
 
+    // 3. Apply to Gemini Hero Mascot (Welcome screen)
+    const heroBtn = document.getElementById('geminiHeroMascotBtn');
+    if (heroBtn) {
+      currentHeroEyeX += (targetHeroEyeX + saccadeOffsetX - currentHeroEyeX) * lerp;
+      currentHeroEyeY += (targetHeroEyeY + saccadeOffsetY - currentHeroEyeY) * lerp;
+      currentHeroFaceX += (targetHeroFaceX - currentHeroFaceX) * lerp;
+      currentHeroFaceY += (targetHeroFaceY - currentHeroFaceY) * lerp;
+      currentHeroTilt += (targetHeroTilt - currentHeroTilt) * lerp;
+      currentHeroScale += (targetHeroScale - currentHeroScale) * lerp;
+
+      const heroEyeL = document.getElementById('noraHeroEyeL');
+      const heroEyeR = document.getElementById('noraHeroEyeR');
+      const heroFace = document.getElementById('noraHeroFaceFeatures');
+
+      if (heroEyeL) heroEyeL.setAttribute('transform', `translate(${98.7 + currentHeroEyeX}, ${207 + currentHeroEyeY})`);
+      if (heroEyeR) heroEyeR.setAttribute('transform', `translate(${231.5 + currentHeroEyeX}, ${206.7 + currentHeroEyeY})`);
+      if (heroFace) heroFace.setAttribute('transform', `translate(${currentHeroFaceX}, ${currentHeroFaceY})`);
+      if (!heroBtn.classList.contains('jumping')) {
+        heroBtn.style.transform = `scale(${currentHeroScale}) rotate(${currentHeroTilt}deg)`;
+      }
+    }
+
     requestAnimationFrame(gazePhysicsLoop);
   }
 
@@ -1133,9 +1282,13 @@
     function blink() {
       if (elements.noraBtnAvatar) elements.noraBtnAvatar.classList.add('blinking');
       if (elements.noraFullscreenAvatar) elements.noraFullscreenAvatar.classList.add('blinking');
+      const heroAvatar = document.getElementById('geminiHeroAvatar');
+      if (heroAvatar) heroAvatar.classList.add('blinking');
+
       setTimeout(() => {
         if (elements.noraBtnAvatar) elements.noraBtnAvatar.classList.remove('blinking');
         if (elements.noraFullscreenAvatar) elements.noraFullscreenAvatar.classList.remove('blinking');
+        if (heroAvatar) heroAvatar.classList.remove('blinking');
       }, 140);
 
       const nextDelay = 3000 + Math.random() * 2600;
