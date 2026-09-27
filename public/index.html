@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Nora — Local AI</title>
-  <link rel="icon" type="image/png" href="/nora-avatar-3d.png">
-  <link rel="stylesheet" href="/style.css?v=9.0">
+  <link rel="icon" type="image/png" href="/nora-avatar-3d.png?v=2">
+  <link rel="stylesheet" href="/style.css?v=9.2">
 </head>
 <body>
 
@@ -21,7 +21,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <a class="brand" href="/">
-          <img src="/nora-avatar-3d.png" alt="Nora Logo" class="brand-avatar-3d">
+          <img src="/nora-avatar-3d.png?v=2" alt="Nora Logo" class="brand-avatar-3d">
           <span class="brand-title">Nora</span>
         </a>
         <button class="icon-btn-ghost" id="toggleSidebarBtn" title="Скрыть панель">✕</button>
@@ -59,7 +59,7 @@
             ☰
           </button>
           <div class="model-pill">
-            <img src="/nora-avatar-3d.png" class="model-avatar-3d" alt="Nora">
+            <img src="/nora-avatar-3d.png?v=2" class="model-avatar-3d" alt="Nora">
             <span id="activeModelName">Nora</span>
           </div>
         </div>
@@ -101,7 +101,12 @@
 
             <div class="nora-3d-dock-avatar" id="noraBtnAvatar">
               <div class="nora-3d-glow-halo mini"></div>
-              <img src="/nora-3d.png" class="nora-3d-img-dock" id="noraDock3dImg" alt="Nora 3D">
+              <div class="nora-dynamic-orb mini">
+                <div class="nora-orb-outer-glow"></div>
+                <img src="/nora-ring.png?v=3" class="nora-orb-ring" alt="Nora Ring">
+                <div class="nora-orb-sweep"></div>
+                <img src="/nora-symbol.png?v=3" class="nora-orb-symbol" id="dockOrbSymbol" alt="Nora Core">
+              </div>
             </div>
           </button>
         </div>
@@ -306,7 +311,12 @@
       <div class="nora-fullscreen-avatar" id="noraFullscreenAvatar">
         <div class="nora-3d-fs-stage" id="noraFs3dStage">
           <div class="nora-3d-glow-halo large"></div>
-          <img src="/nora-3d.png" class="nora-3d-img-fs" id="noraFs3dImg" alt="Nora 3D Voice Assistant">
+          <div class="nora-dynamic-orb fullscreen">
+            <div class="nora-orb-outer-glow"></div>
+            <img src="/nora-ring.png?v=3" class="nora-orb-ring" id="fsOrbRing" alt="Nora Ring">
+            <div class="nora-orb-sweep"></div>
+            <img src="/nora-symbol.png?v=3" class="nora-orb-symbol" id="fsOrbSymbol" alt="Nora Core">
+          </div>
         </div>
       </div>
 
@@ -369,6 +379,6 @@
   <div class="toast-box" id="toastContainer"></div>
 
   <script src="/codex-background.js?v=9.2"></script>
-  <script src="/app.js?v=9.2"></script>
+  <script src="/app.js?v=9.4"></script>
 </body>
 </html>

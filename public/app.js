@@ -404,11 +404,22 @@
           <div class="energy-ring ring-1"></div>
           <div class="energy-ring ring-2"></div>
         </div>
-        <button type="button" class="gemini-hero-mascot-btn" id="geminiHeroMascotBtn" title="Нажмите для вызова голосового ассистента Nora" aria-label="Nora 3D Ассистент">
+        <button type="button" class="gemini-hero-mascot-btn" id="geminiHeroMascotBtn" title="Нажмите для вызова голосового ассистента Nora" aria-label="Nora ИИ-Ассистент">
           <div class="gemini-mascot-avatar-3d" id="geminiHeroAvatar">
             <div class="nora-3d-stage" id="geminiHero3dStage">
               <div class="nora-3d-glow-halo hero"></div>
-              <img src="/nora-3d.png" class="nora-3d-img hero" id="geminiHero3dImg" alt="Nora 3D Assistant">
+              <div class="nora-dynamic-orb hero" id="geminiHeroOrb">
+                <div class="nora-orb-outer-glow"></div>
+                <img src="/nora-ring.png?v=3" class="nora-orb-ring" id="heroOrbRing" alt="Nora Ring">
+                <div class="nora-orb-sweep"></div>
+                <img src="/nora-symbol.png?v=3" class="nora-orb-symbol" id="heroOrbSymbol" alt="Nora Core">
+                <div class="nora-orb-particles">
+                  <span class="orb-particle op-1">✦</span>
+                  <span class="orb-particle op-2">✧</span>
+                  <span class="orb-particle op-3">★</span>
+                  <span class="orb-particle op-4">✦</span>
+                </div>
+              </div>
             </div>
           </div>
         </button>
@@ -456,7 +467,7 @@
       header.className = 'msg-header';
       header.innerHTML = `
         <span class="msg-author-badge">
-          <img src="/nora-avatar-3d.png" class="msg-author-avatar-3d" alt="Nora">
+          <img src="/nora-avatar-3d.png?v=2" class="msg-author-avatar-3d" alt="Nora">
           Nora
         </span>
       `;
@@ -1349,6 +1360,14 @@
         heroStage.style.transform = `perspective(750px) translateY(${currentHeroFloatY + floatBob}px) rotateX(${currentHeroRotX}deg) rotateY(${currentHeroRotY}deg) rotateZ(${currentHeroRotZ + floatTilt}deg) scale3d(${currentHeroScale}, ${currentHeroScale}, 1)`;
       }
 
+      // 3D Parallax floating core symbol
+      const heroSymbol = document.getElementById('heroOrbSymbol');
+      if (heroSymbol) {
+        const sX = (currentHeroRotY / 18) * 8;
+        const sY = -(currentHeroRotX / 14) * 6;
+        heroSymbol.style.transform = `translate3d(${sX}px, ${sY}px, 36px)`;
+      }
+
       if (heroPuddle) {
         const pScale = (1.0 - (floatBob / 45)) * currentHeroScale;
         heroPuddle.style.transform = `translateX(-50%) scale(${pScale})`;
@@ -1364,6 +1383,13 @@
       currentDockScale += (targetDockScale - currentDockScale) * lerp;
 
       dockAvatar.style.transform = `perspective(600px) translateY(${floatBob * 0.6}px) rotateX(${currentDockRotX}deg) rotateY(${currentDockRotY}deg) scale3d(${currentDockScale}, ${currentDockScale}, 1)`;
+
+      const dockSymbol = document.getElementById('dockOrbSymbol');
+      if (dockSymbol) {
+        const dsX = (currentDockRotY / 18) * 4;
+        const dsY = -(currentDockRotX / 14) * 3;
+        dockSymbol.style.transform = `translate3d(${dsX}px, ${dsY}px, 20px)`;
+      }
     }
 
     // 3. Fullscreen voice assistant avatar
@@ -1375,6 +1401,14 @@
 
         const voicePulse = voiceState.isSpeaking ? Math.sin(now * 0.009) * 5 : (voiceState.isListening ? Math.sin(now * 0.005) * 3 : 0);
         fsStage.style.transform = `perspective(850px) translateY(${floatBob * 1.2 + voicePulse}px) rotateX(${currentFsRotX}deg) rotateY(${currentFsRotY}deg) scale3d(${1.0 + (voicePulse ? 0.03 : 0)}, ${1.0 + (voicePulse ? 0.03 : 0)}, 1)`;
+
+        const fsSymbol = document.getElementById('fsOrbSymbol');
+        if (fsSymbol) {
+          const fsX = (currentFsRotY / 18) * 12;
+          const fsY = -(currentFsRotX / 14) * 9;
+          const symPulse = voiceState.isSpeaking ? 1.15 : (voiceState.isListening ? 1.08 : 1.0);
+          fsSymbol.style.transform = `translate3d(${fsX}px, ${fsY}px, 48px) scale(${symPulse})`;
+        }
       }
     }
 
