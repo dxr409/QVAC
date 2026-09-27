@@ -28,7 +28,7 @@
     activeProviderName: 'Nora',
     userName: 'Lyazzat',
     systemPrompt:
-      'You are Nora, an intelligent, helpful AI assistant running locally. Answer clearly, accurately, and concisely.',
+      'Ты — Нора (Nora), умный русскоязычный персональный ИИ-ассистент локальной системы Tether QVAC. Отвечай всегда исключительно на русском языке, грамотно, дружелюбно, точно и по существу.',
     sessions: [],
     activeSessionId: null,
     isGenerating: false,
@@ -126,6 +126,7 @@
     initSessions();
     setupEventListeners();
     initSpeechRecognition();
+    initTtsVoices();
     initNoraCompanion();
     initCodexBackgroundTrail();
     checkHealth();
@@ -143,7 +144,12 @@
     if (savedCustomLlm) state.customLlmUrl = savedCustomLlm;
 
     const savedPrompt = localStorage.getItem('qvac_system_prompt');
-    if (savedPrompt) state.systemPrompt = savedPrompt;
+    if (savedPrompt && !savedPrompt.startsWith('You are')) {
+      state.systemPrompt = savedPrompt;
+    } else {
+      state.systemPrompt = 'Ты — Нора (Nora), умный русскоязычный персональный ИИ-ассистент локальной системы Tether QVAC. Отвечай всегда исключительно на русском языке, грамотно, дружелюбно, точно и по существу.';
+      localStorage.setItem('qvac_system_prompt', state.systemPrompt);
+    }
 
     const savedUser = localStorage.getItem('qvac_user_name');
     if (savedUser) state.userName = savedUser;
@@ -181,7 +187,7 @@
     saveSessions();
 
     if (elements.settingsModal) elements.settingsModal.classList.remove('open');
-    showToast('Settings saved');
+    showToast('Настройки сохранены');
     checkHealth();
     renderChat();
   }
@@ -225,7 +231,7 @@
 
   async function testBackendConnection() {
     if (!elements.connStatusText) return;
-    elements.connStatusText.textContent = 'Testing connection...';
+    elements.connStatusText.textContent = 'Проверка подключения...';
     elements.connStatusText.style.color = 'var(--text-muted)';
 
     try {
@@ -235,18 +241,18 @@
         const online = data.backends ? data.backends.filter(b => b.isOnline) : [];
         const ext = online.find(b => b.type !== 'native');
         if (ext) {
-          elements.connStatusText.textContent = `🟢 Found: ${ext.name}`;
+          elements.connStatusText.textContent = `🟢 Подключено: ${ext.name}`;
           elements.connStatusText.style.color = '#34d399';
         } else {
-          elements.connStatusText.textContent = `⚡ QVAC Native Engine (${data.hardware || 'CPU'})`;
+          elements.connStatusText.textContent = `⚡ Встроенный движок QVAC (${data.hardware || 'CPU'})`;
           elements.connStatusText.style.color = 'var(--accent)';
         }
       } else {
-        elements.connStatusText.textContent = '⚠️ Server responded with error';
+        elements.connStatusText.textContent = '⚠️ Сервер вернул ошибку';
         elements.connStatusText.style.color = '#f59e0b';
       }
     } catch (err) {
-      elements.connStatusText.textContent = '❌ Failed to connect to server';
+      elements.connStatusText.textContent = '❌ Не удалось подключиться к серверу';
       elements.connStatusText.style.color = '#ef4444';
     }
   }
@@ -263,9 +269,17 @@
       state.sessions = [];
     }
 
-    // Migrate old sessions that lack attachedFiles
+    // Migrate old sessions that lack attachedFiles or have English defaults
     state.sessions.forEach(s => {
       if (!Array.isArray(s.attachedFiles)) s.attachedFiles = [];
+      if (s.messages && s.messages[0] && s.messages[0].role === 'system') {
+        if (s.messages[0].content && s.messages[0].content.startsWith('You are')) {
+          s.messages[0].content = state.systemPrompt;
+        }
+      }
+      if (s.title === 'New chat') {
+        s.title = 'Новый чат';
+      }
     });
 
     if (state.sessions.length === 0) {
@@ -290,7 +304,7 @@
   function createNewSession() {
     const newSession = {
       id: 'session-' + Date.now(),
-      title: 'New chat',
+      title: 'Новый чат',
       messages: [{ role: 'system', content: state.systemPrompt }],
       attachedFiles: [] // ← persistent per-session file store
     };
@@ -401,7 +415,7 @@
       </div>
 
       <div class="gemini-greeting-block">
-        <h1 class="gemini-greeting-title">Hello, <span class="gemini-gradient-text">${escapeHtml(userName)}</span></h1>
+        <h1 class="gemini-greeting-title">Привет, <span class="gemini-gradient-text">${escapeHtml(userName)}</span></h1>
         <p class="gemini-greeting-sub">Чем я могу помочь вам сегодня?</p>
       </div>
     `;
@@ -471,7 +485,7 @@
         <div class="code-box">
           <div class="code-top">
             <span>${lang || 'code'}</span>
-            <button class="copy-btn" onclick="window.qvac.copyCode('${id}', this)">Copy</button>
+            <button class="copy-btn" onclick="window.qvac.copyCode('${id}', this)">Копировать</button>
           </div>
           <pre><code id="${id}">${code.trim()}</code></pre>
         </div>
@@ -650,7 +664,7 @@
     const session = getActiveSession();
 
     if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
-      showToast(`Extracting text from "${file.name}"…`);
+      showToast(`Извлечение текста из "${file.name}"…`);
       const reader = new FileReader();
       reader.onload = async e => {
         try {
@@ -660,7 +674,7 @@
             body: JSON.stringify({ fileData: e.target.result, fileName: file.name })
           });
           const data = await res.json();
-          const extracted = data.extractedText || 'No text extracted';
+          const extracted = data.extractedText || 'Текст не распознан';
 
           if (extracted.startsWith('[QVAC OCR]') || data.confidence < 0.4) {
             showToast(`⚠️ ${extracted.replace('[QVAC OCR] ', '')}`);
@@ -669,27 +683,27 @@
 
           const truncated =
             extracted.length > MAX_FILE_CHARS
-              ? extracted.slice(0, MAX_FILE_CHARS) + '\n\n[...truncated at 24 000 chars]'
+              ? extracted.slice(0, MAX_FILE_CHARS) + '\n\n[...обрезано до 24 000 символов]'
               : extracted;
 
           addFileToSession(session, `📄 ${file.name}`, truncated);
-          showToast(`"${file.name}" added — ${truncated.length.toLocaleString()} chars extracted`);
+          showToast(`"${file.name}" добавлен — извлечено ${truncated.length.toLocaleString()} симв.`);
         } catch (err) {
-          showToast(`Could not read "${file.name}": ${err.message}`);
+          showToast(`Не удалось прочитать "${file.name}": ${err.message}`);
         }
       };
       reader.readAsDataURL(file);
     } else {
-      showToast(`Reading "${file.name}"…`);
+      showToast(`Чтение "${file.name}"…`);
       const reader = new FileReader();
       reader.onload = e => {
         const text = e.target.result;
         const truncated =
           text.length > MAX_FILE_CHARS
-            ? text.slice(0, MAX_FILE_CHARS) + '\n\n[...truncated]'
+            ? text.slice(0, MAX_FILE_CHARS) + '\n\n[...обрезано]'
             : text;
         addFileToSession(session, `📎 ${file.name}`, truncated);
-        showToast(`"${file.name}" attached (${truncated.length.toLocaleString()} chars)`);
+        showToast(`"${file.name}" прикреплен (${truncated.length.toLocaleString()} симв.)`);
       };
       reader.readAsText(file);
     }
@@ -731,22 +745,41 @@
   // STT — Web Speech API (SpeechRecognition)
   // ══════════════════════════════════════════════════════════════════════════
 
+  function getSpeechRecognitionClass() {
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }
+
   function initSpeechRecognition() {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = getSpeechRecognitionClass();
 
     if (!SpeechRecognition) {
       if (elements.micBtn) {
         elements.micBtn.disabled = true;
-        elements.micBtn.title = 'Speech recognition not supported — use Chrome or Edge';
+        elements.micBtn.title = 'Распознавание речи не поддерживается в этом браузере';
       }
       return;
     }
+  }
 
+  function toggleRecording() {
+    const SpeechRecognition = getSpeechRecognitionClass();
+    if (!SpeechRecognition) {
+      showToast('Распознавание речи не поддерживается (используйте Chrome, Safari или Edge)');
+      return;
+    }
+
+    if (state.isListening) {
+      stopListening();
+      return;
+    }
+
+    // Always create a fresh instance on user gesture for Safari & Chrome reliability
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    
+    // Strictly target Russian (ru-RU)
+    recognition.lang = 'ru-RU';
 
     recognition.onstart = () => {
       state.isListening = true;
@@ -756,7 +789,7 @@
       if (elements.recordingBar) {
         elements.recordingBar.style.display = 'flex';
         const label = elements.recordingBar.querySelector('.recording-label') || elements.recordingBar.querySelector('span');
-        if (label) label.textContent = '🎙️ Идет запись голоса... Говорите в микрофон';
+        if (label) label.textContent = '🎙️ Слушаю русскую речь... Говорите в микрофон';
       }
     };
 
@@ -784,11 +817,11 @@
     };
 
     recognition.onerror = e => {
-      console.error('[STT] Error:', e.error);
+      console.warn('[STT] Error:', e.error);
       if (e.error === 'not-allowed') {
-        showToast('Microphone access denied — check browser permissions');
-      } else if (e.error !== 'aborted') {
-        showToast(`STT error: ${e.error}`);
+        showToast('Доступ к микрофону отклонен — разрешите в настройках браузера/macOS');
+      } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
+        showToast(`Ошибка STT: ${e.error}`);
       }
       stopListening();
     };
@@ -799,26 +832,21 @@
     };
 
     state.recognition = recognition;
-  }
-
-  function toggleRecording() {
-    if (!state.recognition) {
-      showToast('Speech recognition not supported — use Chrome or Edge');
-      return;
-    }
-
-    if (!state.isListening) {
-      try {
-        state.recognition.start();
-      } catch (e) {
-        // Already started — ignore
-      }
-    } else {
-      state.recognition.stop();
+    try {
+      recognition.start();
+    } catch (err) {
+      console.warn('[STT] Recognition start error:', err);
+      stopListening();
     }
   }
 
   function stopListening() {
+    if (state.recognition) {
+      try {
+        state.recognition.stop();
+      } catch (e) {}
+      state.recognition = null;
+    }
     state.isListening = false;
     if (elements.micBtn) elements.micBtn.classList.remove('recording');
     if (elements.menuMicIconBox) elements.menuMicIconBox.classList.remove('recording');
@@ -830,16 +858,154 @@
   // TTS — Web Speech API (speechSynthesis)
   // ══════════════════════════════════════════════════════════════════════════
 
-  function speakText(text, btn) {
+  let currentAudio = null;
+
+  function initTtsVoices() {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      if (typeof window.speechSynthesis.onvoiceschanged !== 'undefined') {
+        window.speechSynthesis.onvoiceschanged = () => {
+          window.speechSynthesis.getVoices();
+        };
+      }
+    }
+  }
+
+  function getBestRussianVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices() || [];
+    if (!voices.length) return null;
+
+    // 1. Look specifically for Milena (Apple's high-quality native Russian voice on macOS)
+    const milena = voices.find(v => 
+      (v.name && v.name.toLowerCase().includes('milena')) ||
+      (v.voiceURI && v.voiceURI.toLowerCase().includes('milena'))
+    );
+    if (milena) return milena;
+
+    // 2. Look for any Russian voice by popular voice names
+    const preferredNames = ['katya', 'google русский', 'yuri', 'tatyana', 'svetlana', 'elena', 'anna'];
+    for (const name of preferredNames) {
+      const match = voices.find(v => 
+        v.name && v.name.toLowerCase().includes(name)
+      );
+      if (match) return match;
+    }
+
+    // 3. Any voice with lang starting with 'ru' or 'ru_RU' or 'ru-RU'
+    const anyRu = voices.find(v => 
+      v.lang && (v.lang.toLowerCase().startsWith('ru') || v.lang.toLowerCase().includes('ru'))
+    );
+    if (anyRu) return anyRu;
+
+    return null;
+  }
+
+  function stopAllAudioPlayback() {
+    if (currentAudio) {
+      try {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      } catch {}
+      currentAudio = null;
+    }
+    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
+    state.ttsUtterance = null;
+    window._noraUtterance = null;
+  }
+
+  async function speakAudioOrWebSpeech(cleanText, options = {}) {
+    const { onStart, onEnd, onError } = options;
+
+    stopAllAudioPlayback();
+
+    // Strategy 1: High-fidelity Server-side TTS (uses native macOS Milena voice for 100% natural Russian pronunciation)
+    try {
+      const res = await fetch(`${state.apiBase}/v1/audio/speech`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: cleanText, voice: 'Milena' }),
+        signal: AbortSignal.timeout(6000)
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob.size > 200) {
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = new Audio(audioUrl);
+          currentAudio = audio;
+
+          audio.onplay = () => {
+            if (onStart) onStart();
+          };
+          audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            if (currentAudio === audio) currentAudio = null;
+            if (onEnd) onEnd();
+          };
+          audio.onerror = e => {
+            console.warn('[TTS] Audio element error, falling back to Web Speech:', e);
+            URL.revokeObjectURL(audioUrl);
+            if (currentAudio === audio) currentAudio = null;
+            speakViaWebSpeech(cleanText, options);
+          };
+
+          await audio.play();
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[TTS] Server audio fetch failed, falling back to browser speech:', err);
+    }
+
+    // Strategy 2: Fallback to browser Web Speech API
+    speakViaWebSpeech(cleanText, options);
+  }
+
+  function speakViaWebSpeech(clean, options = {}) {
+    const { onStart, onEnd, onError } = options;
     if (!('speechSynthesis' in window)) {
-      showToast('Text-to-speech not supported in this browser');
+      showToast('Синтез речи не поддерживается в этом браузере');
+      if (onError) onError();
       return;
     }
 
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-      if (btn) btn.innerHTML = '🔊 Speak';
-      state.ttsUtterance = null;
+    const utterance = new SpeechSynthesisUtterance(clean);
+    const ruVoice = getBestRussianVoice();
+    if (ruVoice) {
+      utterance.voice = ruVoice;
+      utterance.lang = ruVoice.lang || 'ru-RU';
+    } else {
+      utterance.lang = 'ru-RU';
+    }
+
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onstart = () => {
+      if (onStart) onStart();
+    };
+    utterance.onend = () => {
+      window._noraUtterance = null;
+      if (onEnd) onEnd();
+    };
+    utterance.onerror = err => {
+      window._noraUtterance = null;
+      if (onError) onError(err);
+    };
+
+    // Keep global reference on window to prevent Safari garbage-collection bug
+    window._noraUtterance = utterance;
+    state.ttsUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function speakText(text, btn) {
+    if (currentAudio || (window.speechSynthesis && window.speechSynthesis.speaking)) {
+      stopAllAudioPlayback();
+      if (btn) btn.innerHTML = '🔊 Озвучить';
       return;
     }
 
@@ -852,25 +1018,17 @@
 
     if (!clean) return;
 
-    const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = 'en-US';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-
-    utterance.onstart = () => {
-      if (btn) btn.innerHTML = '🔊 Speaking… (click to stop)';
-    };
-    utterance.onend = () => {
-      if (btn) btn.innerHTML = '🔊 Speak';
-      state.ttsUtterance = null;
-    };
-    utterance.onerror = () => {
-      if (btn) btn.innerHTML = '🔊 Speak';
-      state.ttsUtterance = null;
-    };
-
-    state.ttsUtterance = utterance;
-    window.speechSynthesis.speak(utterance);
+    speakAudioOrWebSpeech(clean, {
+      onStart: () => {
+        if (btn) btn.innerHTML = '🔊 Озвучиваю… (нажмите для остановки)';
+      },
+      onEnd: () => {
+        if (btn) btn.innerHTML = '🔊 Озвучить';
+      },
+      onError: () => {
+        if (btn) btn.innerHTML = '🔊 Озвучить';
+      }
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -879,10 +1037,10 @@
 
   function copyText(text, btn) {
     navigator.clipboard.writeText(text).then(() => {
-      showToast('Copied');
+      showToast('Скопировано');
       if (btn) {
         const old = btn.innerHTML;
-        btn.innerHTML = '✓ Copied';
+        btn.innerHTML = '✓ Скопировано';
         setTimeout(() => { btn.innerHTML = old; }, 1400);
       }
     });
@@ -928,7 +1086,7 @@
         // user must explicitly remove them via ✕ buttons.
         saveSessions();
         renderChat();
-        showToast('Chat history cleared (files kept)');
+        showToast('История диалога очищена (файлы сохранены)');
       };
     }
 
@@ -1341,10 +1499,7 @@
 
     voiceState.isOpen = false;
     stopVoiceListening();
-
-    if (window.speechSynthesis && window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-    }
+    stopAllAudioPlayback();
     voiceState.isSpeaking = false;
     voiceState.isThinking = false;
 
@@ -1363,8 +1518,9 @@
   }
 
   function startVoiceListening() {
-    if (!voiceState.recognition) {
-      showToast('Голосовой ввод не поддерживается браузером (рекомендуется Chrome, Edge или Safari)');
+    const SpeechRecognition = getSpeechRecognitionClass();
+    if (!SpeechRecognition) {
+      showToast('Голосовой ввод не поддерживается браузером (рекомендуется Chrome, Safari или Edge)');
       updateVoiceStatusText('Браузер не поддерживает Web Speech API');
       return;
     }
@@ -1374,18 +1530,78 @@
       voiceState.isSpeaking = false;
     }
 
+    stopVoiceListening();
+
+    // Create a fresh instance for Safari/Chrome compatibility
+    const rec = new SpeechRecognition();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.lang = 'ru-RU'; // Explicitly ru-RU for Russian speech
+
+    rec.onstart = () => {
+      voiceState.isListening = true;
+      updateVoiceUiState('listening');
+    };
+
+    rec.onresult = e => {
+      let interim = '';
+      let final = '';
+
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const transcript = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          final += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+
+      const spokenText = (final || interim).trim();
+      if (spokenText && elements.noraVoiceUserBubble && elements.noraVoiceUserText) {
+        elements.noraVoiceUserBubble.style.display = 'flex';
+        elements.noraVoiceUserText.textContent = spokenText;
+      }
+
+      if (final && final.trim()) {
+        try { rec.stop(); } catch (err) {}
+        handleVoiceUserMessage(final.trim());
+      }
+    };
+
+    rec.onerror = e => {
+      console.warn('[Nora Voice] Recognition error:', e.error);
+      voiceState.isListening = false;
+      if (e.error === 'not-allowed') {
+        updateVoiceStatusText('Доступ к микрофону заблокирован в Safari/браузере');
+      } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
+        updateVoiceStatusText(`Ошибка микрофона: ${e.error}`);
+      }
+      updateVoiceUiState('idle');
+    };
+
+    rec.onend = () => {
+      voiceState.isListening = false;
+      if (!voiceState.isThinking && !voiceState.isSpeaking && voiceState.isOpen) {
+        updateVoiceUiState('idle');
+      }
+    };
+
+    voiceState.recognition = rec;
+
     try {
-      voiceState.recognition.start();
+      rec.start();
     } catch (e) {
-      // If already started, ignore
+      console.warn('[Nora Voice] Failed to start:', e);
+      updateVoiceUiState('idle');
     }
   }
 
   function stopVoiceListening() {
-    if (voiceState.recognition && voiceState.isListening) {
+    if (voiceState.recognition) {
       try {
         voiceState.recognition.stop();
       } catch (e) {}
+      voiceState.recognition = null;
     }
     voiceState.isListening = false;
     updateVoiceUiState('idle');
@@ -1519,14 +1735,7 @@
   }
 
   function speakNoraVoice(text) {
-    if (!('speechSynthesis' in window)) {
-      updateVoiceUiState('idle');
-      return;
-    }
-
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-    }
+    stopAllAudioPlayback();
 
     const clean = text
       .replace(/```[\s\S]*?```/g, ' код опущен ')
@@ -1540,40 +1749,25 @@
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(clean);
-    const voices = window.speechSynthesis.getVoices();
-    const ruVoice = voices.find(v => v.lang && v.lang.startsWith('ru')) || voices.find(v => v.lang && v.lang.startsWith('en')) || voices[0];
-    if (ruVoice) {
-      utterance.voice = ruVoice;
-      utterance.lang = ruVoice.lang;
-    } else {
-      utterance.lang = 'ru-RU';
-    }
-    utterance.rate = 1.05;
-    utterance.pitch = 1.05;
-
-    utterance.onstart = () => {
-      voiceState.isSpeaking = true;
-      updateVoiceUiState('speaking');
-    };
-
-    utterance.onend = () => {
-      voiceState.isSpeaking = false;
-      updateVoiceUiState('idle');
-      setTimeout(() => {
-        if (voiceState.isOpen && !voiceState.isSpeaking && !voiceState.isThinking) {
-          startVoiceListening();
-        }
-      }, 700);
-    };
-
-    utterance.onerror = () => {
-      voiceState.isSpeaking = false;
-      updateVoiceUiState('idle');
-    };
-
-    voiceState.currentUtterance = utterance;
-    window.speechSynthesis.speak(utterance);
+    speakAudioOrWebSpeech(clean, {
+      onStart: () => {
+        voiceState.isSpeaking = true;
+        updateVoiceUiState('speaking');
+      },
+      onEnd: () => {
+        voiceState.isSpeaking = false;
+        updateVoiceUiState('idle');
+        setTimeout(() => {
+          if (voiceState.isOpen && !voiceState.isSpeaking && !voiceState.isThinking) {
+            startVoiceListening();
+          }
+        }, 700);
+      },
+      onError: () => {
+        voiceState.isSpeaking = false;
+        updateVoiceUiState('idle');
+      }
+    });
   }
 
   function toggleVoiceTts() {
@@ -1584,8 +1778,8 @@
     if (elements.noraVoiceTtsIcon) {
       elements.noraVoiceTtsIcon.textContent = voiceState.ttsEnabled ? '🔊' : '🔇';
     }
-    if (!voiceState.ttsEnabled && window.speechSynthesis && window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
+    if (!voiceState.ttsEnabled) {
+      stopAllAudioPlayback();
       voiceState.isSpeaking = false;
       updateVoiceUiState('idle');
     }
@@ -1670,254 +1864,220 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // OPENAI CODEX ETHEREAL SOFT MOUSE TRAIL & GRID ILLUMINATION
+  // OPENAI CODEX INTERACTIVE ASCII MOUSE REVEAL BACKGROUND
   // ══════════════════════════════════════════════════════════════════════════
 
-  function initCodexBackgroundTrail() {
-    const canvas = document.getElementById('codexTrailCanvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: true });
-    if (!ctx) return;
+  class CodexBackground {
+    constructor(container, options = {}) {
+      this.container = container || document.body;
 
-    let width = 0;
-    let height = 0;
-    let dpr = 1;
+      // Configuration
+      this.cellWidth = options.cellWidth || 10;
+      this.cellHeight = options.cellHeight || 14;
+      this.radius = options.radius || 32;
+      this.opacity = options.opacity !== undefined ? options.opacity : 0.55;
+      this.fontSize = options.fontSize || 12;
+      this.decayRate = options.decayRate || 0.015;
+      this.color = options.color || '255, 255, 255';
 
-    function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = width + 'px';
-      canvas.style.height = height + 'px';
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    resize();
-    window.addEventListener('resize', resize, { passive: true });
-
-    // Smooth cursor physics & delicate luminous trail
-    const trail = [];
-    const GRID_SIZE = 52; // Matches .codex-grid-background 52px
-    const cursor = {
-      x: -999,
-      y: -999,
-      targetX: -999,
-      targetY: -999,
-      active: false,
-      alpha: 0
-    };
-    let lastStampX = null;
-    let lastStampY = null;
-    let lastStampTime = 0;
-    let isLoopRunning = false;
-
-    function startLoop() {
-      if (!isLoopRunning) {
-        isLoopRunning = true;
-        requestAnimationFrame(renderLoop);
-      }
-    }
-
-    function onPointerMove(px, py) {
-      cursor.targetX = px;
-      cursor.targetY = py;
-      cursor.active = true;
-
-      const now = performance.now();
-
-      if (lastStampX === null) {
-        lastStampX = px;
-        lastStampY = py;
-        lastStampTime = now;
-        cursor.x = px;
-        cursor.y = py;
-      }
-
-      const dx = px - lastStampX;
-      const dy = py - lastStampY;
-      const dist = Math.hypot(dx, dy);
-      const dt = Math.max(now - lastStampTime, 1);
-      const speed = Math.min(dist / dt, 4.0); // velocity factor
-
-      // Interpolate soft stamps every 3.5px for a perfectly continuous, silky fluid wake
-      if (dist >= 3.5) {
-        const steps = Math.min(Math.floor(dist / 3.5), 18);
-        for (let i = 1; i <= steps; i++) {
-          const t = i / steps;
-          const ix = lastStampX + dx * t;
-          const iy = lastStampY + dy * t;
-
-          // Soft ethereal aura parameters
-          // Generous soft radius (145px - 210px) that gently dissolves
-          const radius = 145 + speed * 15;
-          // Very gentle peak opacity (0.09 - 0.14) - delicate, silky, never harsh
-          const intensity = 0.095 + Math.min(speed * 0.012, 0.045);
-          // Long, silky lingering lifespan (~1350ms to 1800ms)
-          const duration = 1350 + Math.min(speed * 120, 450);
-
-          trail.push({
-            x: ix,
-            y: iy,
-            birth: now,
-            duration: duration,
-            radius: radius,
-            intensity: intensity
-          });
-        }
-
-        lastStampX = px;
-        lastStampY = py;
-        lastStampTime = now;
-      }
-
-      // Keep trail buffer performant
-      if (trail.length > 220) {
-        trail.splice(0, trail.length - 220);
-      }
-
-      startLoop();
-    }
-
-    window.addEventListener('mousemove', e => {
-      onPointerMove(e.clientX, e.clientY);
-    }, { passive: true });
-
-    window.addEventListener('touchmove', e => {
-      if (e.touches && e.touches[0]) {
-        onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    }, { passive: true });
-
-    window.addEventListener('mouseleave', () => {
-      cursor.active = false;
-      lastStampX = null;
-      lastStampY = null;
-    });
-
-    window.addEventListener('touchend', () => {
-      cursor.active = false;
-      lastStampX = null;
-      lastStampY = null;
-    });
-
-    function renderLoop(now) {
-      // Clear canvas cleanly
-      ctx.clearRect(0, 0, width, height);
-
-      // Smooth cursor interpolation (damping)
-      if (cursor.active) {
-        cursor.alpha += (1 - cursor.alpha) * 0.12;
-        cursor.x += (cursor.targetX - cursor.x) * 0.28;
-        cursor.y += (cursor.targetY - cursor.y) * 0.28;
+      // Setup Canvas
+      if (this.container && this.container.tagName === 'CANVAS') {
+        this.canvas = this.container;
+        this.container = this.canvas.parentElement || document.body;
       } else {
-        cursor.alpha += (0 - cursor.alpha) * 0.08;
+        this.canvas = document.createElement('canvas');
+        this.canvas.className = 'codex-ascii-canvas';
+        this.canvas.style.position = 'absolute';
+        this.canvas.style.top = '0';
+        this.canvas.style.left = '0';
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
+        this.canvas.style.pointerEvents = 'none';
+        this.canvas.style.zIndex = options.zIndex !== undefined ? String(options.zIndex) : '0';
+        this.container.appendChild(this.canvas);
       }
 
-      // Use 'screen' composition for ethereal, velvety light stacking without clipping
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
+      this.ctx = this.canvas.getContext('2d');
 
-      // 1. Draw continuous soft-diffused aurora trail
-      for (let i = 0; i < trail.length; i++) {
-        const p = trail[i];
-        const age = now - p.birth;
-        const progress = age / p.duration;
-        if (progress >= 1) continue;
+      // Internal state
+      this.grid = [];
+      this.cols = 0;
+      this.rows = 0;
+      this.mouseX = -1000;
+      this.mouseY = -1000;
+      this.animationFrameId = null;
+      this.isRunning = true;
 
-        // Ultra-gentle quartic ease-out fade: lingers softly, then gracefully vanishes
-        const easeAlpha = Math.pow(1 - progress, 2.4);
-        const alpha = p.intensity * easeAlpha;
-        if (alpha < 0.001) continue;
+      // Bind methods
+      this.resize = this.resize.bind(this);
+      this.onMouseMove = this.onMouseMove.bind(this);
+      this.onTouchMove = this.onTouchMove.bind(this);
+      this.onMouseOut = this.onMouseOut.bind(this);
+      this.render = this.render.bind(this);
 
-        // Radius gently expands as light vaporizes
-        const r = p.radius * (0.88 + 0.28 * Math.sqrt(progress));
+      // Initialize
+      this.init();
+    }
 
-        // OpenAI Codex Ethereal Light Gradient:
-        // Soft moonlit aqua core -> signature emerald-mint -> celestial azure -> deep violet twilight -> transparent
-        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-        grad.addColorStop(0, `rgba(220, 255, 245, ${alpha * 1.0})`);
-        grad.addColorStop(0.18, `rgba(0, 210, 170, ${alpha * 0.72})`);
-        grad.addColorStop(0.44, `rgba(56, 189, 248, ${alpha * 0.38})`);
-        grad.addColorStop(0.72, `rgba(99, 102, 241, ${alpha * 0.14})`);
-        grad.addColorStop(0.92, `rgba(30, 41, 59, ${alpha * 0.04})`);
-        grad.addColorStop(1, 'rgba(8, 9, 13, 0)');
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fill();
+    init() {
+      // Ensure container is positioned relatively so absolute canvas fits inside
+      if (this.container !== document.body) {
+        const computedStyle = window.getComputedStyle(this.container);
+        if (computedStyle.position === 'static') {
+          this.container.style.position = 'relative';
+        }
       }
 
-      // 2. Active breathing spotlight directly under the live cursor
-      if (cursor.alpha > 0.005 && cursor.x > -500) {
-        const breath = 1.0 + 0.05 * Math.sin(now * 0.0024);
-        const liveRadius = 185 * breath;
-        const liveAlpha = 0.135 * cursor.alpha;
+      window.addEventListener('resize', this.resize, { passive: true });
+      window.addEventListener('mousemove', this.onMouseMove, { passive: true });
+      window.addEventListener('mouseout', this.onMouseOut, { passive: true });
+      window.addEventListener('touchmove', this.onTouchMove, { passive: true });
+      window.addEventListener('touchend', this.onMouseOut, { passive: true });
 
-        const liveGrad = ctx.createRadialGradient(cursor.x, cursor.y, 0, cursor.x, cursor.y, liveRadius);
-        liveGrad.addColorStop(0, `rgba(235, 255, 250, ${liveAlpha * 1.0})`);
-        liveGrad.addColorStop(0.2, `rgba(0, 220, 180, ${liveAlpha * 0.75})`);
-        liveGrad.addColorStop(0.48, `rgba(56, 189, 248, ${liveAlpha * 0.40})`);
-        liveGrad.addColorStop(0.75, `rgba(99, 102, 241, ${liveAlpha * 0.15})`);
-        liveGrad.addColorStop(1, 'rgba(8, 9, 13, 0)');
+      this.resize();
+      this.render();
+    }
 
-        ctx.fillStyle = liveGrad;
-        ctx.beginPath();
-        ctx.arc(cursor.x, cursor.y, liveRadius, 0, Math.PI * 2);
-        ctx.fill();
+    resize() {
+      const width = this.container === document.body
+        ? window.innerWidth
+        : (this.container.clientWidth || window.innerWidth);
+      const height = this.container === document.body
+        ? window.innerHeight
+        : (this.container.clientHeight || window.innerHeight);
+
+      const dpr = window.devicePixelRatio || 1;
+      this.canvas.width = Math.floor(width * dpr);
+      this.canvas.height = Math.floor(height * dpr);
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      this.cols = Math.ceil(width / this.cellWidth);
+      this.rows = Math.ceil(height / this.cellHeight);
+
+      // Re-initialize grid
+      this.grid = new Float32Array(this.cols * this.rows);
+    }
+
+    onTouchMove(e) {
+      if (e.touches && e.touches[0]) {
+        this.onMouseMove(e.touches[0]);
       }
+    }
 
-      // 3. Delicate Architectural Grid Illumination (The authentic Codex signature)
-      // When cursor/trail passes over grid intersections, delicately illuminate the micro-crosshairs
-      if (cursor.alpha > 0.01 && cursor.x > -500) {
-        const inspectRadius = 190;
-        const minGx = Math.max(0, Math.floor((cursor.x - inspectRadius) / GRID_SIZE) * GRID_SIZE);
-        const maxGx = Math.min(width, Math.ceil((cursor.x + inspectRadius) / GRID_SIZE) * GRID_SIZE);
-        const minGy = Math.max(0, Math.floor((cursor.y - inspectRadius) / GRID_SIZE) * GRID_SIZE);
-        const maxGy = Math.min(height, Math.ceil((cursor.y + inspectRadius) / GRID_SIZE) * GRID_SIZE);
+    onMouseMove(e) {
+      // Get mouse position relative to container
+      const rect = this.container.getBoundingClientRect();
+      this.mouseX = e.clientX - rect.left;
+      this.mouseY = e.clientY - rect.top;
 
-        ctx.lineWidth = 1;
-        for (let gx = minGx; gx <= maxGx; gx += GRID_SIZE) {
-          for (let gy = minGy; gy <= maxGy; gy += GRID_SIZE) {
-            const dx = gx - cursor.x;
-            const dy = gy - cursor.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < inspectRadius) {
-              const factor = Math.pow(1 - dist / inspectRadius, 2.2);
-              const crossAlpha = factor * 0.28 * cursor.alpha;
-              if (crossAlpha > 0.015) {
-                ctx.strokeStyle = `rgba(0, 225, 185, ${crossAlpha})`;
-                ctx.beginPath();
-                ctx.moveTo(gx - 3.5, gy);
-                ctx.lineTo(gx + 3.5, gy);
-                ctx.moveTo(gx, gy - 3.5);
-                ctx.lineTo(gx, gy + 3.5);
-                ctx.stroke();
+      const minCol = Math.max(0, Math.floor((this.mouseX - this.radius) / this.cellWidth));
+      const maxCol = Math.min(this.cols - 1, Math.floor((this.mouseX + this.radius) / this.cellWidth));
+      const minRow = Math.max(0, Math.floor((this.mouseY - this.radius) / this.cellHeight));
+      const maxRow = Math.min(this.rows - 1, Math.floor((this.mouseY + this.radius) / this.cellHeight));
+
+      for (let i = minCol; i <= maxCol; i++) {
+        for (let j = minRow; j <= maxRow; j++) {
+          const cx = i * this.cellWidth + this.cellWidth / 2;
+          const cy = j * this.cellHeight + this.cellHeight / 2;
+
+          const dist = Math.hypot(this.mouseX - cx, this.mouseY - cy);
+
+          if (dist < this.radius) {
+            let intensity = 1 - (dist / this.radius);
+            intensity = Math.pow(intensity, 1.0);
+
+            const idx = j * this.cols + i;
+            this.grid[idx] = Math.min(1.0, this.grid[idx] + intensity * 0.9);
+          }
+        }
+      }
+    }
+
+    onMouseOut() {
+      this.mouseX = -1000;
+      this.mouseY = -1000;
+    }
+
+    render() {
+      if (!this.isRunning) return;
+
+      const width = this.canvas.width / (window.devicePixelRatio || 1);
+      const height = this.canvas.height / (window.devicePixelRatio || 1);
+
+      this.ctx.clearRect(0, 0, width, height);
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.font = `400 ${this.fontSize}px monospace`;
+
+      for (let i = 0; i < this.cols; i++) {
+        for (let j = 0; j < this.rows; j++) {
+          const idx = j * this.cols + i;
+
+          if (this.grid[idx] > 0) {
+            this.grid[idx] -= this.decayRate;
+            if (this.grid[idx] < 0) this.grid[idx] = 0;
+
+            const life = this.grid[idx];
+
+            if (life > 0.01) {
+              let char = '-';
+
+              // Sequence: O -> > -> -
+              if (life > 0.6) {
+                char = 'O';
+              } else if (life > 0.3) {
+                char = '>';
+              } else {
+                char = '-';
               }
+
+              this.ctx.fillStyle = `rgba(${this.color}, ${this.opacity})`;
+
+              const cx = i * this.cellWidth + this.cellWidth / 2;
+              const cy = j * this.cellHeight + this.cellHeight / 2;
+              this.ctx.fillText(char, cx, cy);
             }
           }
         }
       }
 
-      ctx.restore();
+      this.animationFrameId = requestAnimationFrame(this.render);
+    }
 
-      // Prune expired trail points
-      for (let i = trail.length - 1; i >= 0; i--) {
-        if (now - trail[i].birth >= trail[i].duration) {
-          trail.splice(i, 1);
-        }
+    destroy() {
+      this.isRunning = false;
+      window.removeEventListener('resize', this.resize);
+      window.removeEventListener('mousemove', this.onMouseMove);
+      window.removeEventListener('mouseout', this.onMouseOut);
+      window.removeEventListener('touchmove', this.onTouchMove);
+      window.removeEventListener('touchend', this.onMouseOut);
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
       }
-
-      // Sleep loop if idle to save battery & CPU
-      if (trail.length === 0 && (!cursor.active || cursor.alpha < 0.005)) {
-        ctx.clearRect(0, 0, width, height);
-        isLoopRunning = false;
-        return;
+      if (this.canvas && this.canvas.parentNode) {
+        this.canvas.parentNode.removeChild(this.canvas);
       }
+    }
+  }
 
-      requestAnimationFrame(renderLoop);
+  window.CodexBackground = CodexBackground;
+
+  function initCodexBackgroundTrail() {
+    const container = document.getElementById('codexBackgroundContainer') || document.body;
+    if (window.codexBg && typeof window.codexBg.destroy === 'function') {
+      window.codexBg.destroy();
+    }
+    const BgClass = window.CodexBackground || CodexBackground;
+    if (typeof BgClass === 'function') {
+      window.codexBg = new BgClass(container, {
+        cellWidth: 10,
+        cellHeight: 14,
+        radius: 34,
+        opacity: 0.55,
+        fontSize: 12,
+        decayRate: 0.015,
+        zIndex: 1
+      });
     }
   }
 
@@ -1939,7 +2099,7 @@
       session.attachedFiles.splice(idx, 1);
       saveSessions();
       renderAttachments();
-      showToast('File removed from session');
+      showToast('Файл удален из сессии');
     }
   };
 

@@ -78,6 +78,17 @@ html, body {
   -webkit-mask-image: radial-gradient(ellipse 92% 75% at 50% 32%, #000 35%, rgba(0, 0, 0, 0.15) 80%, transparent 100%);
 }
 
+.codex-background-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.codex-ascii-canvas,
 .codex-trail-canvas {
   position: fixed;
   inset: 0;
@@ -86,7 +97,6 @@ html, body {
   pointer-events: none;
   z-index: 1;
   display: block;
-  mix-blend-mode: screen;
 }
 
 .codex-ambient-glow {

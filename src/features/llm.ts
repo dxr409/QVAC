@@ -207,7 +207,7 @@ export class QvacLLM {
     const hardware = this.client.getHardwareDevice();
     const modelName = options.model || this.client.getConfig().models?.llm?.name || 'llama-3.2-3b-instruct';
 
-    const isRussian = /[а-яА-ЯёЁ]/.test(userPrompt);
+    const isRussian = true;
     const content = this.synthesizeNativeResponse(userPrompt, systemPrompt, messages, isRussian, hardware);
 
     const promptTokens = Math.max(1, Math.round(userPrompt.length / 3));

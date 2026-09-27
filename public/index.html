@@ -9,9 +9,9 @@
 </head>
 <body>
 
-  <!-- Задний фон в стиле OpenAI Codex (архитектурная сетка, интерактивный световой след и тактильная зернистость) -->
+  <!-- Задний фон в стиле OpenAI Codex (архитектурная сетка, интерактивный ASCII след и тактильная зернистость) -->
   <div class="codex-grid-background" aria-hidden="true"></div>
-  <canvas class="codex-trail-canvas" id="codexTrailCanvas" aria-hidden="true"></canvas>
+  <div class="codex-background-container" id="codexBackgroundContainer" aria-hidden="true"></div>
   <div class="codex-ambient-glow" aria-hidden="true"></div>
   <div class="codex-noise-overlay" aria-hidden="true"></div>
 
@@ -368,6 +368,7 @@
   <!-- Уведомления -->
   <div class="toast-box" id="toastContainer"></div>
 
-  <script src="/app.js?v=9.0"></script>
+  <script src="/codex-background.js?v=9.2"></script>
+  <script src="/app.js?v=9.2"></script>
 </body>
 </html>
